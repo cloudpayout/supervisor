@@ -1,50 +1,114 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+- Version change: unratified template → 1.0.0
+- Modified principles:
+  - [PRINCIPLE_1_NAME] → I. Spec Before Implementation
+  - [PRINCIPLE_2_NAME] → II. CLI as the Operator Interface
+  - [PRINCIPLE_3_NAME] → III. Single Shared Browser Session
+  - [PRINCIPLE_4_NAME] → IV. Supervisor Owns the Run
+  - [PRINCIPLE_5_NAME] → V. Named Games Only
+- Added sections:
+  - Technical Constraints
+  - Delivery Workflow
+- Removed sections: none
+- Follow-up TODOs: none
+- Sources: GitHub README (17fb175), go.mod, .specify/init-options.json.
+  This worktree's README is still the stub "# Supervisor".
+-->
+
+# Cloudpayout Supervisor Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Spec Before Implementation
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+Every behavior change MUST be recorded in a Spec Kit feature spec, plan, and
+task list before implementation starts. Code that lands MUST cite the spec
+scenario or task it satisfies. A change with no spec trace MUST NOT merge.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+Rationale: Spec Kit was adopted as the delivery process before any application
+code existed. Specs are the source of truth for what Supervisor does.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### II. CLI as the Operator Interface
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+Supervisor MUST be operated through its command-line interface. Starting
+automations, observing their statuses, and stopping them MUST be possible from that
+CLI. No other interface is the supported operator surface.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+Rationale: Cloudpayout Supervisor is the official CLI for running game
+automations.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### III. Multiple Browser Instances
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+Supervisor MUST run an isolated browser instance using `chromedp` to ensure 
+isolation, privacy and monitoring about the resources being in real-time.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+Rationale: Supervisor monitor automations which contains credentials and
+it has to monitor the resources being expent in real-time.
+
+### IV. Supervisor Owns the Run
+
+Supervisor MUST start, monitor, and stop each automation run. 
+Automations (sessions) MUST live in automation scripts, not in Supervisor's process
+control. When Supervisor stops a run, script control of the session MUST end
+with it.
+
+Rationale: Supervisor is the monitor and lifecycle owner. Scripts control the
+session only for the life of a run Supervisor started.
+
+### V. Named Casinos and Games Only
+
+Supervisor MUST start automations only for casinos and games it explicitly supports. 
+Every casino has games that can be run.
+
+Rationale: The product runs automations on registered games from casinos. Growth of that
+set is an explicit decision, not an implied default.
+
+## Technical Constraints
+
+- The module path MUST remain `github.com/cloudpayout/supervisor`.
+- Implementation language MUST be Go. The Go version MUST match `go.mod`
+  (Go 1.27.1 at ratification) unless a spec amends it.
+- Browser control MUST use chromedp.
+- Feature directories MUST use sequential numbering, and the Spec Kit
+  integration MUST remain cursor-agent, as set in `.specify/init-options.json`,
+  unless a constitution amendment changes that.
+- Credentials, session cookies, and other secrets MUST be supplied at runtime.
+  They MUST NOT be committed to the repository.
+
+## Delivery Workflow
+
+- Feature work MUST follow Spec Kit in order: specify, plan, tasks, then
+  implement. Clarify and checklist steps MUST be used when a spec is ambiguous
+  or a review needs a feature-specific checklist.
+- A review MUST block a change that violates a MUST principle in this
+  constitution. The spec, plan, or tasks MUST change to comply. The principle
+  MUST NOT be reinterpreted to fit the change.
+- Automated tests MUST cover CLI start, status, and stop, and the session
+  lifecycle those commands control, before that behavior is complete.
+- Default tests MUST run without a live casino site. A check that drives a
+  real game MUST be marked external and MUST NOT gate the default test run.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes informal practice, README wording, and examples
+left in Spec Kit templates. Templates are read at runtime and MUST NOT be
+edited to carry principle changes.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+Amendments MUST be made in `.specify/memory/constitution.md` and MUST bump
+**Version** using semantic versioning:
+
+- MAJOR: a principle is removed or redefined so existing specs no longer comply.
+- MINOR: a principle or section is added, or guidance is materially expanded.
+- PATCH: wording is clarified without changing an obligation.
+
+Each amendment MUST set **Last Amended** to the amendment date in
+`YYYY-MM-DD`. **Ratified** stays the original adoption date. The Sync Impact
+Report at the top of the file is review scratch and MUST be removed before the
+amendment is committed.
+
+Plans, tasks, and reviews MUST check compliance with this constitution. A MUST
+violation is a blocking defect. Extra complexity beyond these principles MUST
+be justified in the feature plan.
+
+**Version**: 1.0.0 | **Ratified**: 2026-10-29 | **Last Amended**: 2026-10-29
