@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cloudpayout/supervisor/schemas/instances-registry.v1.json",
+  "title": "SupervisorInstanceRegistry",
+  "type": "object",
+  "required": ["schema_version", "instances"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "instances": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/instance"
+      }
+    }
+  },
+  "$defs": {
+    "instance": {
+      "type": "object",
+      "required": ["id", "state", "created_at", "profile_dir"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state": {
+          "type": "string",
+          "enum": ["starting", "running", "stopping", "stopped"]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "profile_dir": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner_pid": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "browser_pid": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "log_path": {
+          "type": "string"
+        },
+        "headless": {
+          "type": "boolean"
+        },
+        "last_seen_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "state": { "const": "running" } },
+            "required": ["state"]
+          },
+          "then": {
+            "required": ["owner_pid", "browser_pid"]
+          }
+        }
+      ]
+    }
+  }
+}
