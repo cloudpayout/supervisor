@@ -18,18 +18,16 @@ func TestStopLifecycleMessages(t *testing.T) {
 
 	cmd := exec.Command(bin, "stop")
 	cmd.Env = env
-	cmd.Stdin = strings.NewReader("\n")
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("empty stop: %v %s", err, out)
+	if err == nil {
+		t.Fatalf("expected usage error for missing ID: %s", out)
 	}
-	if !strings.Contains(string(out), "stop aborted") {
-		t.Fatalf("abort message: %s", out)
+	if cmd.ProcessState == nil || cmd.ProcessState.ExitCode() != 2 {
+		t.Fatalf("missing ID exit %v output %s", cmd.ProcessState, out)
 	}
 
-	cmd = exec.Command(bin, "stop")
+	cmd = exec.Command(bin, "stop", "missing-id")
 	cmd.Env = env
-	cmd.Stdin = strings.NewReader("missing-id\n")
 	out, err = cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("not found exit: %v %s", err, out)
@@ -65,9 +63,8 @@ func TestStopLifecycleMessages(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd = exec.Command(bin, "stop")
+	cmd = exec.Command(bin, "stop", "gone1")
 	cmd.Env = env
-	cmd.Stdin = strings.NewReader("gone1\n")
 	out, err = cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("already stopped exit: %v %s", err, out)

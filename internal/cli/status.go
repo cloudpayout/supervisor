@@ -17,16 +17,32 @@ import (
 const statusInterval = 2 * time.Second
 
 func newStatusCmd() *cobra.Command {
-	return &cobra.Command{
+	var follow bool
+	cmd := &cobra.Command{
 		Use:   "status",
-		Short: "List tracked instances and refresh resource usage",
+		Args:  cobra.NoArgs,
+		Short: "Print a snapshot of tracked instances and resource usage",
+		Long: `Print instance state and CPU/memory once and exit.
+
+Use --follow or -f to refresh the table about every 2 seconds until interrupted.
+Full-screen clearing applies only in follow mode on an interactive terminal.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runStatus()
+			if follow {
+				return runStatusFollow()
+			}
+			return runStatusOnce()
 		},
 	}
+	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "Refresh output every ~2s until interrupted")
+	return cmd
 }
 
-func runStatus() error {
+func runStatusOnce() error {
+	store := mustStore()
+	return renderStatus(store, false)
+}
+
+func runStatusFollow() error {
 	store := mustStore()
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
@@ -35,9 +51,10 @@ func runStatus() error {
 	ticker := time.NewTicker(statusInterval)
 	defer ticker.Stop()
 	for {
-		if err := renderStatus(store); err != nil {
+		if err := renderStatus(store, isTTY(os.Stdout)); err != nil {
 			return err
 		}
+		ticker.Reset(statusInterval)
 		select {
 		case <-sig:
 			fmt.Println()
@@ -47,7 +64,7 @@ func runStatus() error {
 	}
 }
 
-func renderStatus(store registry.Store) error {
+func renderStatus(store registry.Store, clearScreen bool) error {
 	var rows []registry.Instance
 	err := store.Update(func(doc *registry.Document) error {
 		registry.Apply(doc, time.Now().UTC())
@@ -57,7 +74,7 @@ func renderStatus(store registry.Store) error {
 	if err != nil {
 		return err
 	}
-	if isTTY(os.Stdout) {
+	if clearScreen && isTTY(os.Stdout) {
 		fmt.Print("\033[H\033[2J")
 	}
 	if len(rows) == 0 {
