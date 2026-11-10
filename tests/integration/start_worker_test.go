@@ -37,8 +37,7 @@ func TestStartRegistersAndReachesRunning(t *testing.T) {
 
 func stopID(t *testing.T, bin string, env []string, id string) {
 	t.Helper()
-	cmd := exec.Command(bin, "stop")
+	cmd := exec.Command(bin, "stop", id)
 	cmd.Env = env
-	cmd.Stdin = strings.NewReader(id + "\n")
 	_, _ = cmd.CombinedOutput()
 }

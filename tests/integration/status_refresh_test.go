@@ -45,9 +45,11 @@ func TestStatusEmptyAndStartingUnavailable(t *testing.T) {
 	}
 }
 
-func runStatusOnce(t *testing.T, bin string, env []string) string {
-	t.Helper()
-	cmd := exec.Command(bin, "status")
+func TestStatusFollowExitsOnSIGINT(t *testing.T) {
+	bin := supervisorBin(t)
+	env, _ := isolatedEnv(t)
+
+	cmd := exec.Command(bin, "status", "-f")
 	cmd.Env = env
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
@@ -55,14 +57,10 @@ func runStatusOnce(t *testing.T, bin string, env []string) string {
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(3 * time.Second)
-	for time.Now().Before(deadline) {
-		if buf.Len() > 0 {
-			break
-		}
-		time.Sleep(50 * time.Millisecond)
+	time.Sleep(300 * time.Millisecond)
+	if err := cmd.Process.Signal(syscall.SIGINT); err != nil {
+		t.Fatal(err)
 	}
-	_ = cmd.Process.Signal(syscall.SIGINT)
 	waitDone := make(chan struct{})
 	go func() {
 		_ = cmd.Wait()
@@ -72,10 +70,20 @@ func runStatusOnce(t *testing.T, bin string, env []string) string {
 	case <-waitDone:
 	case <-time.After(3 * time.Second):
 		_ = cmd.Process.Kill()
-		t.Fatal("status did not exit on SIGINT")
+		t.Fatal("status -f did not exit on SIGINT")
 	}
-	if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() != 0 && cmd.ProcessState.ExitCode() != -1 {
-		t.Fatalf("status exit %d output %s", cmd.ProcessState.ExitCode(), buf.String())
+	if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() != 0 {
+		t.Fatalf("status -f exit %d output %s", cmd.ProcessState.ExitCode(), buf.String())
 	}
-	return buf.String()
+}
+
+func runStatusOnce(t *testing.T, bin string, env []string) string {
+	t.Helper()
+	cmd := exec.Command(bin, "status")
+	cmd.Env = env
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("status: %v %s", err, out)
+	}
+	return string(out)
 }

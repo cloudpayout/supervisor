@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"strings"
@@ -15,25 +14,19 @@ import (
 
 func newStopCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "stop",
+		Use:   "stop <instance-id>",
 		Short: "Stop a browser instance by ID",
+		Long:  "Stop the supervised instance with the given ID. No interactive prompt is used.",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runStop()
+			return runStop(strings.TrimSpace(args[0]))
 		},
 	}
 }
 
-func runStop() error {
-	fmt.Fprint(os.Stderr, "Instance ID: ")
-	sc := bufio.NewScanner(os.Stdin)
-	if !sc.Scan() {
-		fmt.Fprintln(os.Stderr, "stop aborted")
-		return nil
-	}
-	id := strings.TrimSpace(sc.Text())
+func runStop(id string) error {
 	if id == "" {
-		fmt.Fprintln(os.Stderr, "stop aborted")
-		return nil
+		return fmt.Errorf("instance ID required")
 	}
 
 	store := mustStore()
