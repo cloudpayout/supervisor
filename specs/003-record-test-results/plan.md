@@ -6,7 +6,7 @@
 
 ## Summary
 
-Every push and every pull request, including forks and any branch, gets one recorded result for the project's default checks. The result is a single GitHub-hosted job, `default-checks`, on `ubuntu-latest` (Linux, `ubuntu-24.04`). The job installs Go from `go.mod` (1.27.1 today) and a real browser the product already knows how to find, then runs `go test -json ./...` once on that checkout. A skip or a failed execution fails the job, so the author sees a result that is not successful. A second execution is not added. The job is information on the change. This feature does not require the job as a status check, does not add a code-owner review, and does not otherwise hold a merge. A code owner who can already merge may merge a failure, a skip, a job that did not finish, or a pull request that changes the workflow file. The job requests read-only contents permission and no secrets. The workflow file cites this spec. Product behavior is unchanged unless a recorded run shows a browser check skipped, and even then only that skip may be fixed.
+Every push and every pull request, including forks and any branch, gets one recorded result for the project's default checks. The result is a single GitHub-hosted job, `default-checks`, on `ubuntu-latest` (Linux, `ubuntu-24.04`). The job installs Go from `go.mod` (1.27.1 today) and a real browser the product already knows how to find, then runs `go test -json ./...` once on that checkout. A skipped test or a failed execution fails the job, so the author sees a result that is not successful. A package that has no test files does not fail the job. A second execution is not added. The job is information on the change. This feature does not require the job as a status check, does not add a code-owner review, and does not otherwise hold a merge. A code owner who can already merge may merge a failure, a skip, a job that did not finish, or a pull request that changes the workflow file. The job requests read-only contents permission and no secrets. The workflow file cites this spec. Product behavior is unchanged unless a recorded run shows a browser check skipped, and even then only that skip may be fixed.
 
 ## Technical Context
 
@@ -16,7 +16,7 @@ Every push and every pull request, including forks and any branch, gets one reco
 
 **Storage**: N/A. The result is the workflow job GitHub shows on the change. See [data-model.md](./data-model.md).
 
-**Testing**: `go test -json ./...` once, no build tags. Any `"Action":"skip"` fails that execution. The `slow` ten-instance test is not part of the run. A second execution is out of scope.
+**Testing**: `go test -json ./...` once, no build tags. A test-level `"Action":"skip"` (the same JSON line also names `"Test"`) fails that execution. A package-level `"Action":"skip"` with no `"Test"` field, which is what `go test` emits for a package with no test files, does not. The match does not depend on key order. The `slow` ten-instance test is not part of the run. A second execution is out of scope.
 
 **Target Platform**: GitHub-hosted `ubuntu-latest` (Linux x64, 4 CPU, 16 GB RAM). macOS, Windows, and privately operated runners are out of scope.
 

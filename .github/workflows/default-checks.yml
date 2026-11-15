@@ -38,8 +38,4 @@ jobs:
           set -o pipefail
           go test -json ./... | tee test-results.json
           status=${PIPESTATUS[0]}
-          if grep -q '"Action":"skip"' test-results.json; then
-            echo "A check was skipped"
-            exit 1
-          fi
-          exit "$status"
+          bash .github/scripts/default-checks-result.sh test-results.json "$status"

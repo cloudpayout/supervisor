@@ -34,7 +34,7 @@ The workflow file begins with a comment that cites `specs/003-record-test-result
 1. Check out the revision that triggered the job.
 2. Install the Go version declared in `go.mod` (1.27.1 today) and leave `go` on `PATH`.
 3. Install a real browser executable on `PATH` under one of these names: `google-chrome`, `google-chrome-stable`, `chromium`, `chromium-browser`, `chrome`.
-4. Run `go test -json ./...` once, with no extra build tags. Fail the job if the command exits non-zero or the JSON contains `"Action":"skip"`.
+4. Run `go test -json ./...` once, with no extra build tags. Fail the job if the command exits non-zero, or if a JSON line records `"Action":"skip"` and also names a test (`"Test"` is present). A package-level `"Action":"skip"` with no `"Test"` field — the event for a package with no test files — does not fail the job. Both keys must be on the same line; their order does not matter. `go test -json` today writes `Time`, `Action`, `Package`, then `Test`.
 
 There is no second test execution. `go test ./...` does not include the `slow` ten-instance check and does not include an external casino check. Product browser flags are unchanged.
 
@@ -43,8 +43,8 @@ There is no second test execution. `go test ./...` does not include the `slow` t
 | Job | Overall | Merge |
 |-----|---------|-------|
 | Job queued, running, cancelled, or absent | `did_not_run` | Unchanged. A code owner may merge. |
-| Job failed, or the JSON contains a skip | `not_successful` | Unchanged. The result stays visible. A code owner may merge. |
-| Job succeeded with no skip | `successful` | Unchanged. This job adds no merge step. |
+| Job failed, or the JSON contains a test-level skip | `not_successful` | Unchanged. The result stays visible. A code owner may merge. |
+| Job succeeded with no test-level skip | `successful` | Unchanged. This job adds no merge step. Package-level skips for packages with no test files are allowed. |
 | The workflow file changed | Whatever the job on that revision reports | Unchanged. This feature adds no approval that must happen first. |
 
 ## What this feature does not configure
