@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestOneWinSecretStaysOffTheRecord(t *testing.T) {
@@ -20,32 +19,27 @@ func TestOneWinSecretStaysOffTheRecord(t *testing.T) {
 	env, regPath := isolatedEnv(t)
 	env = append(env, "SUPERVISOR_PAGE_URL="+page.url)
 	file := writeSession(t, `{"casino":"onewin","cookies":[{"name":"session-id","value":"`+secret+`","domain":"127.0.0.1","path":"/"}]}`)
+	// Operator start is short-lived; /proc cmdline is not a stable place to
+	// observe its positional path. The path is handed to the worker instead.
 	startCmd := exec.Command(bin, "start", file, "--headless")
 	startCmd.Env = env
-	var startOut bytes.Buffer
-	startCmd.Stdout = &startOut
-	startCmd.Stderr = &startOut
-	if err := startCmd.Start(); err != nil {
-		t.Fatal(err)
+	startOut, err := startCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("start: %v %s", err, startOut)
 	}
-	// /proc/pid/cmdline is empty between fork and exec. Poll briefly, then fail
-	// if the positional path never appears (a real argv regression).
-	operatorArgv := waitCmdlineContains(t, startCmd.Process.Pid, file, 500*time.Millisecond)
-	if bytes.Contains(operatorArgv, []byte("--session-file")) {
-		t.Fatalf("operator start argv includes --session-file: %q", operatorArgv)
-	}
-	assertNoSecret(t, secret, operatorArgv, "operator start argv")
-	if err := startCmd.Wait(); err != nil {
-		t.Fatalf("start: %v %s", err, startOut.Bytes())
-	}
-	id := strings.TrimSpace(startOut.String())
+	assertNoSecret(t, secret, startOut, "operator start output")
+	id := strings.TrimSpace(string(startOut))
 	if id == "" {
 		t.Fatal("missing id")
 	}
 	t.Cleanup(func() { stopID(t, bin, env, id) })
 	inst := waitRunning(t, regPath, id)
 
-	assertNoSecret(t, secret, cmdline(t, inst.OwnerPID), "worker cmdline")
+	workerArgv := cmdline(t, inst.OwnerPID)
+	if !bytes.Contains(workerArgv, []byte("--session-file")) || !bytes.Contains(workerArgv, []byte(file)) {
+		t.Fatalf("worker argv missing the session path: %q", workerArgv)
+	}
+	assertNoSecret(t, secret, workerArgv, "worker cmdline")
 	assertNoSecret(t, secret, cmdline(t, inst.BrowserPID), "browser cmdline")
 	log, _ := os.ReadFile(inst.LogPath)
 	assertNoSecret(t, secret, log, "worker log")
@@ -93,25 +87,6 @@ func cmdline(t *testing.T, pid int) []byte {
 		t.Fatal(err)
 	}
 	return raw
-}
-
-func waitCmdlineContains(t *testing.T, pid int, needle string, budget time.Duration) []byte {
-	t.Helper()
-	deadline := time.Now().Add(budget)
-	var last []byte
-	for {
-		raw, err := os.ReadFile("/proc/" + itoa(pid) + "/cmdline")
-		if err == nil {
-			last = raw
-			if len(raw) > 0 && (bytes.Contains(raw, []byte(needle)) || bytes.Contains(raw, []byte(filepath.Base(needle)))) {
-				return raw
-			}
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("operator start argv missing the positional path: %q", last)
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
 }
 
 func assertNoSecret(t *testing.T, secret string, raw []byte, where string) {
