@@ -27,6 +27,9 @@ type Instance struct {
 	LogPath    string     `json:"log_path,omitempty"`
 	Headless   *bool      `json:"headless,omitempty"`
 	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
+	// Casino is the registered identifier, such as onewin. A blank start omits it.
+	// It is not a cookie, a session path, or a page address (FR-005, FR-006).
+	Casino string `json:"casino,omitempty"`
 }
 
 // Document is the on-disk registry (schema_version const 1).

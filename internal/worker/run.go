@@ -3,21 +3,28 @@ package worker
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/chromedp/cdproto/cdp"
+	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
 	"github.com/shirou/gopsutil/v4/process"
 
 	"github.com/cloudpayout/supervisor/internal/browser"
+	"github.com/cloudpayout/supervisor/internal/casino"
+	"github.com/cloudpayout/supervisor/internal/proc"
 	"github.com/cloudpayout/supervisor/internal/registry"
+	"github.com/cloudpayout/supervisor/internal/session"
 )
 
 // Run owns one chromedp session until the browser exits or SIGTERM arrives.
-func Run(reg registry.Store, id string) error {
+// sessionFile is empty for a blank start, which still opens about:blank (FR-010 of feature 001).
+func Run(reg registry.Store, id, sessionFile string) error {
 	var inst registry.Instance
 	err := reg.View(func(doc *registry.Document) error {
 		i := doc.Find(id)
@@ -39,23 +46,38 @@ func Run(reg registry.Store, id string) error {
 	defer stop()
 
 	allocCtx, allocCancel := chromedp.NewExecAllocator(ctx, browser.AllocatorOptions(inst.ProfileDir, headless)...)
-	defer allocCancel()
 	taskCtx, taskCancel := chromedp.NewContext(allocCtx)
-	defer taskCancel()
 
-	if err := chromedp.Do(taskCtx, chromedp.Navigate("about:blank")); err != nil {
+	var browserPID int
+	defer func() {
+		// FR-007: cancel the browser, wait until it has exited, then delete the profile.
+		allocCancel()
+		taskCancel()
+		deadline := time.Now().Add(5 * time.Second)
+		for proc.Alive(browserPID) && time.Now().Before(deadline) {
+			time.Sleep(100 * time.Millisecond)
+		}
+		browser.RemoveProfile(inst.ProfileDir)
 		_ = remove(reg, id)
-		return fmt.Errorf("open about:blank: %w", err)
+	}()
+
+	page, cookies, err := openTarget(inst.Casino, sessionFile)
+	if err != nil {
+		return err
+	}
+	if err := chromedp.Do(taskCtx, openActions(page, cookies)...); err != nil {
+		if sessionFile == "" {
+			return fmt.Errorf("open about:blank: %w", err)
+		}
+		return fmt.Errorf("open page")
 	}
 
-	browserPID, err := findBrowserPID(inst.ProfileDir)
+	browserPID, err = findBrowserPID(inst.ProfileDir)
 	if err != nil {
-		_ = remove(reg, id)
 		return err
 	}
 	layout, err := registry.Resolve()
 	if err != nil {
-		_ = remove(reg, id)
 		return err
 	}
 	socketPath := layout.CaptureSocket(id)
@@ -76,12 +98,10 @@ func Run(reg registry.Store, id string) error {
 		return nil
 	})
 	if err != nil {
-		_ = remove(reg, id)
 		return err
 	}
 
 	listenCtx, listenCancel := context.WithCancel(context.Background())
-	defer listenCancel()
 	captureDone := make(chan struct{})
 	go func() {
 		defer close(captureDone)
@@ -94,14 +114,91 @@ func Run(reg registry.Store, id string) error {
 	}()
 	if err := waitForSocket(socketPath, captureDone); err != nil {
 		stopCapture(listenCancel, captureDone, socketPath)
-		_ = remove(reg, id)
 		return err
 	}
 
 	<-taskCtx.Done()
 	stopCapture(listenCancel, captureDone, socketPath)
-	_ = remove(reg, id)
 	return nil
+}
+
+func openTarget(casinoID, sessionFile string) (string, []session.Cookie, error) {
+	if sessionFile == "" {
+		return "about:blank", nil, nil
+	}
+	cookies, err := session.Parse(sessionFile, time.Now())
+	if err != nil {
+		return "", nil, err
+	}
+	if casinoID == "" {
+		casinoID = "onewin"
+	}
+	found, err := casino.Lookup(casinoID)
+	if err != nil {
+		return "", nil, err
+	}
+	page := found.Page
+	if override := os.Getenv("SUPERVISOR_PAGE_URL"); override != "" {
+		page = override
+	}
+	return page, cookies, nil
+}
+
+func openActions(page string, cookies []session.Cookie) []chromedp.Action[chromedp.Void] {
+	actions := make([]chromedp.Action[chromedp.Void], 0, len(cookies)+1)
+	for i, cookie := range cookies {
+		cookie := cookie
+		index := i
+		actions = append(actions, chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
+			if err := setCookie(ctx, t, page, cookie); err != nil {
+				return fmt.Errorf("set cookie %d", index)
+			}
+			return nil
+		}))
+	}
+	actions = append(actions, chromedp.Navigate(page))
+	return actions
+}
+
+func setCookie(ctx context.Context, target *chromedp.Target, page string, cookie session.Cookie) error {
+	params := network.SetCookieParams{
+		Name:  cookie.Name,
+		Value: cookie.Value,
+		URL:   page,
+	}
+	if cookie.Domain != "" {
+		params.Domain = cookie.Domain
+	}
+	if cookie.Path != "" {
+		params.Path = cookie.Path
+	}
+	if cookie.Secure {
+		v := true
+		params.Secure = &v
+	}
+	if cookie.HTTPOnly {
+		v := true
+		params.HTTPOnly = &v
+	}
+	if cookie.SameSite != "" {
+		params.SameSite = network.CookieSameSite(cookie.SameSite)
+	}
+	if cookie.Expires != nil {
+		params.Expires = cdp.TimeSinceEpoch(float64(cookie.Expires.UnixNano()) / 1e9)
+	}
+	if cookie.Partitioned {
+		params.PartitionKey = &network.CookiePartitionKey{TopLevelSite: topLevelSite(page)}
+	}
+	_, err := cdp.Call(ctx, target, network.SetCookie, params)
+	return err
+}
+
+func topLevelSite(page string) string {
+	u, err := url.Parse(page)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return page
+	}
+	return u.Scheme + "://" + u.Host
 }
 
 // stopCapture closes the listener and unlinks the socket before the caller

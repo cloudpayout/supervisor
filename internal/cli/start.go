@@ -10,27 +10,48 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cloudpayout/supervisor/internal/browser"
+	"github.com/cloudpayout/supervisor/internal/casino"
 	"github.com/cloudpayout/supervisor/internal/instance"
 	"github.com/cloudpayout/supervisor/internal/registry"
+	"github.com/cloudpayout/supervisor/internal/session"
 )
 
 func newStartCmd() *cobra.Command {
 	var headed, headless bool
+	var casinoID, sessionFile string
 	cmd := &cobra.Command{
 		Use:   "start",
-		Short: "Start an isolated browser on a blank page",
-		Long:  "Starts one chromedp instance on about:blank. Default is headed. --headed and --headless are mutually exclusive.",
+		Short: "Start an isolated browser",
+		Long:  "Starts one chromedp instance. With no casino, the page is about:blank. --casino onewin requires --session-file. Default is headed. --headed and --headless are mutually exclusive.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runStart(headed, headless)
+			return runStart(headed, headless, casinoID, sessionFile)
 		},
 	}
 	cmd.Flags().BoolVar(&headed, "headed", false, "Show a visible Chrome window (default when neither flag is set)")
 	cmd.Flags().BoolVar(&headless, "headless", false, "Run Chrome without a window")
+	cmd.Flags().StringVar(&casinoID, "casino", "", "Registered casino identifier, such as onewin")
+	cmd.Flags().StringVar(&sessionFile, "session-file", "", "Path to the session file. The JSON document is not an argument")
 	cmd.MarkFlagsMutuallyExclusive("headed", "headless")
 	return cmd
 }
 
-func runStart(headed, headless bool) error {
+func runStart(headed, headless bool, casinoID, sessionFile string) error {
+	// FR-001 and FR-009: the casino and the session path are a pair. A bad file
+	// is rejected before Chrome starts, and the error does not include a cookie value.
+	if (casinoID == "") != (sessionFile == "") {
+		return fmt.Errorf("usage: --casino and --session-file must be set together")
+	}
+	var named casino.Casino
+	if casinoID != "" {
+		found, err := casino.Lookup(casinoID)
+		if err != nil {
+			return err
+		}
+		if _, err := session.Parse(sessionFile, time.Now()); err != nil {
+			return err
+		}
+		named = found
+	}
 	if err := browser.Preflight(); err != nil {
 		return err
 	}
@@ -67,6 +88,9 @@ func runStart(headed, headless bool) error {
 			v := true
 			inst.Headless = &v
 		}
+		if named.ID != "" {
+			inst.Casino = named.ID
+		}
 		doc.Instances = append(doc.Instances, inst)
 		return nil
 	})
@@ -82,6 +106,9 @@ func runStart(headed, headless bool) error {
 	args := []string{"worker", "run", "--id", id}
 	if useHeadless {
 		args = append(args, "--headless")
+	}
+	if named.ID != "" {
+		args = append(args, "--session-file", sessionFile)
 	}
 	worker := exec.Command(os.Args[0], args...)
 	worker.Stdout = logf
