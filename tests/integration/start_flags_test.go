@@ -33,6 +33,7 @@ func TestStartRecordsHeadless(t *testing.T) {
 	if blank.Headless != nil && *blank.Headless {
 		t.Fatal("blank start recorded headless")
 	}
+	stopID(t, bin, blankEnv, blankID)
 
 	headlessEnv, headlessReg := isolatedEnv(t)
 	headlessID := startArgs(t, bin, headlessEnv, "start", "--headless")
@@ -41,6 +42,7 @@ func TestStartRecordsHeadless(t *testing.T) {
 	if row.Headless == nil || !*row.Headless {
 		t.Fatal("headless start did not record headless")
 	}
+	stopID(t, bin, headlessEnv, headlessID)
 
 	file := writeSession(t, `{"casino":"onewin","cookies":[{"name":"a","value":"b","domain":"127.0.0.1","path":"/"}]}`)
 	page := newStandIn(t, "a", "b")
@@ -48,10 +50,13 @@ func TestStartRecordsHeadless(t *testing.T) {
 	fileEnv = append(fileEnv, "SUPERVISOR_PAGE_URL="+page.url)
 	fileID := startArgs(t, bin, fileEnv, "start", file)
 	t.Cleanup(func() { stopID(t, bin, fileEnv, fileID) })
+	// Headed Chrome may not reach running without a display. The flag is stored
+	// on the row before the worker runs, so presence is the assertion.
 	fileRow := waitPresent(t, fileReg, fileID)
 	if fileRow.Headless != nil && *fileRow.Headless {
 		t.Fatal("session start recorded headless")
 	}
+	stopID(t, bin, fileEnv, fileID)
 
 	fileHeadlessEnv, fileHeadlessReg := isolatedEnv(t)
 	fileHeadlessEnv = append(fileHeadlessEnv, "SUPERVISOR_PAGE_URL="+page.url)
@@ -61,6 +66,7 @@ func TestStartRecordsHeadless(t *testing.T) {
 	if fileHeadless.Headless == nil || !*fileHeadless.Headless {
 		t.Fatal("session headless start did not record headless")
 	}
+	stopID(t, bin, fileHeadlessEnv, fileHeadlessID)
 }
 
 func startArgs(t *testing.T, bin string, env []string, args ...string) string {

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestOneWinSecretStaysOffTheRecord(t *testing.T) {
@@ -27,10 +28,9 @@ func TestOneWinSecretStaysOffTheRecord(t *testing.T) {
 	if err := startCmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	operatorArgv := cmdline(t, startCmd.Process.Pid)
-	if !bytes.Contains(operatorArgv, []byte(file)) {
-		t.Fatalf("operator start argv missing the positional path: %q", operatorArgv)
-	}
+	// /proc/pid/cmdline is empty between fork and exec. Poll briefly, then fail
+	// if the positional path never appears (a real argv regression).
+	operatorArgv := waitCmdlineContains(t, startCmd.Process.Pid, file, 500*time.Millisecond)
 	if bytes.Contains(operatorArgv, []byte("--session-file")) {
 		t.Fatalf("operator start argv includes --session-file: %q", operatorArgv)
 	}
@@ -93,6 +93,25 @@ func cmdline(t *testing.T, pid int) []byte {
 		t.Fatal(err)
 	}
 	return raw
+}
+
+func waitCmdlineContains(t *testing.T, pid int, needle string, budget time.Duration) []byte {
+	t.Helper()
+	deadline := time.Now().Add(budget)
+	var last []byte
+	for {
+		raw, err := os.ReadFile("/proc/" + itoa(pid) + "/cmdline")
+		if err == nil {
+			last = raw
+			if len(raw) > 0 && (bytes.Contains(raw, []byte(needle)) || bytes.Contains(raw, []byte(filepath.Base(needle)))) {
+				return raw
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("operator start argv missing the positional path: %q", last)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 }
 
 func assertNoSecret(t *testing.T, secret string, raw []byte, where string) {
