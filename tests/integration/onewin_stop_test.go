@@ -16,7 +16,7 @@ func TestOneWinStopRemovesProfile(t *testing.T) {
 	page := newStandIn(t, "session-id", secret)
 	env, regPath := isolatedEnv(t)
 	env = append(env, "SUPERVISOR_PAGE_URL="+page.url)
-	file := writeSession(t, `{"cookies":[{"name":"session-id","value":"`+secret+`","domain":"127.0.0.1","path":"/"}]}`)
+	file := writeSession(t, `{"casino":"onewin","cookies":[{"name":"session-id","value":"`+secret+`","domain":"127.0.0.1","path":"/"}]}`)
 	id := startCasino(t, bin, env, file)
 	inst := waitRunning(t, regPath, id)
 	assertStatusRunning(t, bin, env, id)
@@ -50,8 +50,8 @@ func TestOneWinFailedStartRemovesProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	env = append(env, "CHROME_PATH="+script)
-	file := writeSession(t, `{"cookies":[{"name":"session-id","value":"unused","domain":"127.0.0.1","path":"/"}]}`)
-	cmd := exec.Command(bin, "start", "--casino", "onewin", "--session-file", file, "--headless")
+	file := writeSession(t, `{"casino":"onewin","cookies":[{"name":"session-id","value":"unused","domain":"127.0.0.1","path":"/"}]}`)
+	cmd := exec.Command(bin, "start", file, "--headless")
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	if err == nil {

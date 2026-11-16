@@ -16,6 +16,7 @@ func TestOneWinStartAppliesCookie(t *testing.T) {
 	env = append(env, "SUPERVISOR_PAGE_URL="+page.url)
 
 	file := writeSession(t, `{
+		"casino":"onewin",
 		"cookies":[{"name":"session-id","value":"`+secret+`","domain":"127.0.0.1","path":"/","secure":false}]
 	}`)
 	id := startCasino(t, bin, env, file)
@@ -23,6 +24,9 @@ func TestOneWinStartAppliesCookie(t *testing.T) {
 	inst := waitRunning(t, regPath, id)
 	if inst.Casino != "onewin" {
 		t.Fatalf("casino %q", inst.Casino)
+	}
+	if inst.Headless == nil || !*inst.Headless {
+		t.Fatalf("headless flag not recorded: %+v", inst.Headless)
 	}
 	if !sawShown(page) {
 		t.Fatalf("stand-in did not show balance: %+v", page.hitsCopy())
@@ -32,7 +36,7 @@ func TestOneWinStartAppliesCookie(t *testing.T) {
 	withheld := newStandIn(t, "session-id", "other-value")
 	env2, reg2 := isolatedEnv(t)
 	env2 = append(env2, "SUPERVISOR_PAGE_URL="+withheld.url)
-	plain := writeSession(t, `{"cookies":[{"name":"session-id","value":"different","domain":"127.0.0.1","path":"/"}]}`)
+	plain := writeSession(t, `{"casino":"onewin","cookies":[{"name":"session-id","value":"different","domain":"127.0.0.1","path":"/"}]}`)
 	id2 := startCasino(t, bin, env2, plain)
 	t.Cleanup(func() { stopID(t, bin, env2, id2) })
 	waitRunning(t, reg2, id2)
@@ -44,6 +48,7 @@ func TestOneWinStartAppliesCookie(t *testing.T) {
 	env3, reg3 := isolatedEnv(t)
 	env3 = append(env3, "SUPERVISOR_PAGE_URL="+both.url)
 	two := writeSession(t, `{
+		"casino":"onewin",
 		"cookies":[
 			{"name":"session-id","value":"`+secret+`","domain":"127.0.0.1","path":"/"},
 			{"name":"other","value":"second","domain":"127.0.0.1","path":"/"}
@@ -55,6 +60,37 @@ func TestOneWinStartAppliesCookie(t *testing.T) {
 	hit := lastHit(t, both)
 	if !hit.shown || !strings.Contains(hit.cookie, "session-id="+secret) || !strings.Contains(hit.cookie, "other=second") {
 		t.Fatalf("two cookies: %+v", hit)
+	}
+
+	ordered := newStandIn(t, "session-id", secret)
+	envOrder, regOrder := isolatedEnv(t)
+	envOrder = append(envOrder, "SUPERVISOR_PAGE_URL="+ordered.url)
+	cmdOrder := exec.Command(bin, "start", "--headless", file)
+	cmdOrder.Env = envOrder
+	outOrder, err := cmdOrder.CombinedOutput()
+	if err != nil {
+		t.Fatalf("flag-first start: %v %s", err, outOrder)
+	}
+	idOrder := strings.TrimSpace(string(outOrder))
+	t.Cleanup(func() { stopID(t, bin, envOrder, idOrder) })
+	waitRunning(t, regOrder, idOrder)
+	if !sawShown(ordered) {
+		t.Fatalf("flag-first start did not show balance: %+v", ordered.hitsCopy())
+	}
+
+	headedEnv, headedReg := isolatedEnv(t)
+	headedEnv = append(headedEnv, "SUPERVISOR_PAGE_URL="+page.url)
+	cmdHeaded := exec.Command(bin, "start", file)
+	cmdHeaded.Env = headedEnv
+	outHeaded, err := cmdHeaded.CombinedOutput()
+	if err != nil {
+		t.Fatalf("headed start: %v %s", err, outHeaded)
+	}
+	idHeaded := strings.TrimSpace(string(outHeaded))
+	t.Cleanup(func() { stopID(t, bin, headedEnv, idHeaded) })
+	headed := waitPresent(t, headedReg, idHeaded)
+	if headed.Headless != nil && *headed.Headless {
+		t.Fatalf("headed start recorded headless true")
 	}
 
 	blankEnv, blankReg := isolatedEnv(t)
@@ -74,7 +110,7 @@ func TestOneWinStartAppliesCookie(t *testing.T) {
 
 func startCasino(t *testing.T, bin string, env []string, file string) string {
 	t.Helper()
-	cmd := exec.Command(bin, "start", "--casino", "onewin", "--session-file", file, "--headless")
+	cmd := exec.Command(bin, "start", file, "--headless")
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {

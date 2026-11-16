@@ -18,12 +18,28 @@ func TestOneWinSecretStaysOffTheRecord(t *testing.T) {
 	page := newStandIn(t, "session-id", secret)
 	env, regPath := isolatedEnv(t)
 	env = append(env, "SUPERVISOR_PAGE_URL="+page.url)
-	file := writeSession(t, `{"cookies":[{"name":"session-id","value":"`+secret+`","domain":"127.0.0.1","path":"/"}]}`)
-	id := startCasino(t, bin, env, file)
+	file := writeSession(t, `{"casino":"onewin","cookies":[{"name":"session-id","value":"`+secret+`","domain":"127.0.0.1","path":"/"}]}`)
+	// Operator start is short-lived; /proc cmdline is not a stable place to
+	// observe its positional path. The path is handed to the worker instead.
+	startCmd := exec.Command(bin, "start", file, "--headless")
+	startCmd.Env = env
+	startOut, err := startCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("start: %v %s", err, startOut)
+	}
+	assertNoSecret(t, secret, startOut, "operator start output")
+	id := strings.TrimSpace(string(startOut))
+	if id == "" {
+		t.Fatal("missing id")
+	}
 	t.Cleanup(func() { stopID(t, bin, env, id) })
 	inst := waitRunning(t, regPath, id)
 
-	assertNoSecret(t, secret, cmdline(t, inst.OwnerPID), "worker cmdline")
+	workerArgv := cmdline(t, inst.OwnerPID)
+	if !bytes.Contains(workerArgv, []byte("--session-file")) || !bytes.Contains(workerArgv, []byte(file)) {
+		t.Fatalf("worker argv missing the session path: %q", workerArgv)
+	}
+	assertNoSecret(t, secret, workerArgv, "worker cmdline")
 	assertNoSecret(t, secret, cmdline(t, inst.BrowserPID), "browser cmdline")
 	log, _ := os.ReadFile(inst.LogPath)
 	assertNoSecret(t, secret, log, "worker log")

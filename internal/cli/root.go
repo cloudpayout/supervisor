@@ -29,6 +29,7 @@ func isUsageError(err error) bool {
 	return strings.Contains(msg, "mutually exclusive") ||
 		strings.Contains(msg, "were all set") ||
 		strings.Contains(msg, "unknown flag") ||
+		strings.Contains(msg, "unknown shorthand") ||
 		strings.Contains(msg, "unknown command") ||
 		strings.Contains(msg, "required flag") ||
 		strings.Contains(msg, "accepts") && strings.Contains(msg, "received") ||

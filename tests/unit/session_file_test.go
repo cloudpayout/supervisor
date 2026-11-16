@@ -26,7 +26,8 @@ func TestSessionFileRules(t *testing.T) {
 	}
 	_ = ok
 
-	got, err := session.Parse(write("full.json", `{
+	casinoID, got, err := session.Parse(write("full.json", `{
+		"casino": "onewin",
 		"cookies": [{
 			"name": "session-id",
 			"value": "`+secret+`",
@@ -43,7 +44,7 @@ func TestSessionFileRules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || got[0].Value != secret || got[0].Domain != "127.0.0.1" || got[0].Path != "/" {
+	if casinoID != "onewin" || len(got) != 1 || got[0].Value != secret || got[0].Domain != "127.0.0.1" || got[0].Path != "/" {
 		t.Fatalf("%+v", got)
 	}
 	if !got[0].Secure || !got[0].HTTPOnly || !got[0].Partitioned || got[0].SameSite != "Lax" {
@@ -53,7 +54,7 @@ func TestSessionFileRules(t *testing.T) {
 		t.Fatalf("expires %+v", got[0].Expires)
 	}
 
-	aged, err := session.Parse(write("age.json", `{"cookies":[{"name":"a","value":"b","maxAge":90}]}`), now)
+	_, aged, err := session.Parse(write("age.json", `{"casino":"onewin","cookies":[{"name":"a","value":"b","maxAge":90}]}`), now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +63,7 @@ func TestSessionFileRules(t *testing.T) {
 		t.Fatalf("maxAge expiry %+v", aged[0].Expires)
 	}
 
-	two, err := session.Parse(write("two.json", `{"cookies":[{"name":"a","value":"b"},{"name":"c","value":"d"}]}`), now)
+	_, two, err := session.Parse(write("two.json", `{"casino":"onewin","cookies":[{"name":"a","value":"b"},{"name":"c","value":"d"}]}`), now)
 	if err != nil || len(two) != 2 {
 		t.Fatalf("%v %+v", err, two)
 	}
@@ -71,15 +72,21 @@ func TestSessionFileRules(t *testing.T) {
 		name string
 		body string
 	}{
-		{"empty", `{"cookies":[]}`},
-		{"blank name", `{"cookies":[{"name":"","value":"b"}]}`},
-		{"blank value", `{"cookies":[{"name":"a","value":""}]}`},
-		{"bad expires", `{"cookies":[{"name":"a","value":"b","expires":"tomorrow"}]}`},
-		{"fractional maxAge", `{"cookies":[{"name":"a","value":"b","maxAge":1.5}]}`},
-		{"bad sameSite", `{"cookies":[{"name":"a","value":"b","sameSite":"Maybe"}]}`},
-		{"unknown", `{"cookies":[{"name":"a","value":"` + secret + `","extra":true}]}`},
+		{"empty", `{"casino":"onewin","cookies":[]}`},
+		{"missing casino", `{"cookies":[{"name":"a","value":"b"}]}`},
+		{"empty casino", `{"casino":"","cookies":[{"name":"a","value":"b"}]}`},
+		{"bad casino", `{"casino":"Onewin","cookies":[{"name":"a","value":"b"}]}`},
+		{"url casino", `{"casino":"1win.com","cookies":[{"name":"a","value":"b"}]}`},
+		{"unknown casino", `{"casino":"other","cookies":[{"name":"a","value":"b"}]}`},
+		{"unknown field", `{"casino":"onewin","extra":true,"cookies":[{"name":"a","value":"b"}]}`},
+		{"blank name", `{"casino":"onewin","cookies":[{"name":"","value":"b"}]}`},
+		{"blank value", `{"casino":"onewin","cookies":[{"name":"a","value":""}]}`},
+		{"bad expires", `{"casino":"onewin","cookies":[{"name":"a","value":"b","expires":"tomorrow"}]}`},
+		{"fractional maxAge", `{"casino":"onewin","cookies":[{"name":"a","value":"b","maxAge":1.5}]}`},
+		{"bad sameSite", `{"casino":"onewin","cookies":[{"name":"a","value":"b","sameSite":"Maybe"}]}`},
+		{"unknown", `{"casino":"onewin","cookies":[{"name":"a","value":"` + secret + `","extra":true}]}`},
 	} {
-		_, err := session.Parse(write(tc.name+".json", tc.body), now)
+		_, _, err := session.Parse(write(tc.name+".json", tc.body), now)
 		if err == nil {
 			t.Fatalf("%s accepted", tc.name)
 		}
