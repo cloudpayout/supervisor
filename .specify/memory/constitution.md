@@ -1,8 +1,8 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 1.1.0
+- Version change: 1.1.0 → 1.2.0
 - Modified principles:
-  - V. Named Casinos and Games Only: casino and game identifiers MUST match ^[a-z]+$
+  - V. Named Casinos and Games Only: removed the obligation that every casino has games that can be run. A casino MAY be explicitly supported before any of its games can be run.
 - Added sections: none
 - Removed sections: none
 - Follow-up TODOs: none
@@ -51,14 +51,15 @@ session only for the life of a run Supervisor started.
 ### V. Named Casinos and Games Only
 
 Supervisor MUST start automations only for casinos and games it explicitly supports.
-Every casino has games that can be run. Each casino identifier and each game
-identifier MUST be one or more lowercase ASCII letters (`a-z`). Digits,
-punctuation, and uppercase letters MUST NOT appear in an identifier. A host or
+A casino MAY be explicitly supported before any of its games can be run. Each casino
+identifier and each game identifier MUST be one or more lowercase ASCII letters (`a-z`).
+Digits, punctuation, and uppercase letters MUST NOT appear in an identifier. A host or
 a URL MUST NOT be used as an identifier.
 
-Rationale: The product runs automations on registered games from casinos. Growth of that
-set is an explicit decision, not an implied default. One lowercase spelling makes the
-registered name unambiguous. `onewin` is an identifier. `1win.com` is a URL.
+Rationale: The product runs automations on registered games from casinos. Supporting a
+casino does not require one of its games to be runnable in the same change. Running a
+game remains its own explicit decision. One lowercase spelling makes the registered name
+unambiguous. `onewin` is an identifier. `1win.com` is a URL.
 
 ## Technical Constraints
 
@@ -107,4 +108,4 @@ Plans, tasks, and reviews MUST check compliance with this constitution. A MUST
 violation is a blocking defect. Extra complexity beyond these principles MUST
 be justified in the feature plan.
 
-**Version**: 1.1.0 | **Ratified**: 2026-10-29 | **Last Amended**: 2026-11-15
+**Version**: 1.2.0 | **Ratified**: 2026-10-29 | **Last Amended**: 2026-11-15
