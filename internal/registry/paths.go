@@ -42,3 +42,9 @@ func (l Layout) LogPath(id string) string {
 func (l Layout) ProfileDir(id string) string {
 	return filepath.Join(l.DataDir, "profiles", id)
 }
+
+// CaptureSocket is the Unix socket for one running instance (FR-001).
+// Callers must refuse an id that is not a single path segment before joining.
+func (l Layout) CaptureSocket(id string) string {
+	return filepath.Join(l.StateDir, "sockets", id+".sock")
+}

@@ -53,6 +53,15 @@ func Run(reg registry.Store, id string) error {
 		_ = remove(reg, id)
 		return err
 	}
+	layout, err := registry.Resolve()
+	if err != nil {
+		_ = remove(reg, id)
+		return err
+	}
+	socketPath := layout.CaptureSocket(id)
+
+	// The row becomes running before the socket exists, so a starting instance
+	// has no listener (FR-010). The CLI retries the dial inside its 15-second budget.
 	owner := os.Getpid()
 	now := time.Now().UTC()
 	err = reg.Update(func(doc *registry.Document) error {
@@ -71,9 +80,54 @@ func Run(reg registry.Store, id string) error {
 		return err
 	}
 
+	listenCtx, listenCancel := context.WithCancel(context.Background())
+	defer listenCancel()
+	captureDone := make(chan struct{})
+	go func() {
+		defer close(captureDone)
+		_ = ServeCapture(listenCtx, socketPath, func(context.Context) ([]byte, error) {
+			// Child of taskCtx: this timeout does not close the browser (FR-005, FR-009).
+			shotCtx, cancel := context.WithTimeout(taskCtx, 10*time.Second)
+			defer cancel()
+			return chromedp.Run(shotCtx, chromedp.CaptureScreenshot())
+		})
+	}()
+	if err := waitForSocket(socketPath, captureDone); err != nil {
+		stopCapture(listenCancel, captureDone, socketPath)
+		_ = remove(reg, id)
+		return err
+	}
+
 	<-taskCtx.Done()
+	stopCapture(listenCancel, captureDone, socketPath)
 	_ = remove(reg, id)
 	return nil
+}
+
+// stopCapture closes the listener and unlinks the socket before the caller
+// removes the registry row (FR-010).
+func stopCapture(cancel context.CancelFunc, done <-chan struct{}, socketPath string) {
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(12 * time.Second):
+	}
+	_ = os.Remove(socketPath)
+}
+
+func waitForSocket(path string, failed <-chan struct{}) error {
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(path); err == nil {
+			return nil
+		}
+		select {
+		case <-failed:
+			return fmt.Errorf("capture socket failed")
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+	return fmt.Errorf("capture socket not ready")
 }
 
 func remove(reg registry.Store, id string) error {
