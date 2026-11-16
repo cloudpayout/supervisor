@@ -18,8 +18,30 @@ func TestOneWinSecretStaysOffTheRecord(t *testing.T) {
 	page := newStandIn(t, "session-id", secret)
 	env, regPath := isolatedEnv(t)
 	env = append(env, "SUPERVISOR_PAGE_URL="+page.url)
-	file := writeSession(t, `{"cookies":[{"name":"session-id","value":"`+secret+`","domain":"127.0.0.1","path":"/"}]}`)
-	id := startCasino(t, bin, env, file)
+	file := writeSession(t, `{"casino":"onewin","cookies":[{"name":"session-id","value":"`+secret+`","domain":"127.0.0.1","path":"/"}]}`)
+	startCmd := exec.Command(bin, "start", file, "--headless")
+	startCmd.Env = env
+	var startOut bytes.Buffer
+	startCmd.Stdout = &startOut
+	startCmd.Stderr = &startOut
+	if err := startCmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	operatorArgv := cmdline(t, startCmd.Process.Pid)
+	if !bytes.Contains(operatorArgv, []byte(file)) {
+		t.Fatalf("operator start argv missing the positional path: %q", operatorArgv)
+	}
+	if bytes.Contains(operatorArgv, []byte("--session-file")) {
+		t.Fatalf("operator start argv includes --session-file: %q", operatorArgv)
+	}
+	assertNoSecret(t, secret, operatorArgv, "operator start argv")
+	if err := startCmd.Wait(); err != nil {
+		t.Fatalf("start: %v %s", err, startOut.Bytes())
+	}
+	id := strings.TrimSpace(startOut.String())
+	if id == "" {
+		t.Fatal("missing id")
+	}
 	t.Cleanup(func() { stopID(t, bin, env, id) })
 	inst := waitRunning(t, regPath, id)
 

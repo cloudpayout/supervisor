@@ -94,6 +94,24 @@ func waitRunning(t *testing.T, regPath, id string) registry.Instance {
 	return registry.Instance{}
 }
 
+func waitPresent(t *testing.T, regPath, id string) registry.Instance {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(regPath); err == nil {
+			doc := readDoc(t, regPath)
+			for _, inst := range doc.Instances {
+				if inst.ID == id {
+					return inst
+				}
+			}
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("instance %s not in registry", id)
+	return registry.Instance{}
+}
+
 func runScreenshot(t *testing.T, bin string, env []string, dir, id string) string {
 	t.Helper()
 	namePattern := regexp.MustCompile(`^screenshot-` + regexp.QuoteMeta(id) + `-\d{8}-\d{6}(-\d+)?\.png$`)

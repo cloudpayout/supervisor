@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 	"time"
+
+	"github.com/cloudpayout/supervisor/internal/casino"
 )
 
 // Cookie is one browser cookie from a session file. Value stays in this process.
@@ -37,36 +39,46 @@ type rawCookie struct {
 	Partitioned *bool   `json:"partitioned"`
 }
 
-// Parse reads a session file. The document is not copied into the project (FR-001).
-// expires wins over maxAge. maxAge is seconds added to now when expires is absent (FR-004).
-func Parse(path string, now time.Time) ([]Cookie, error) {
+// Parse reads a session file for start (specs/005-start-command-syntax FR-003, FR-005).
+// It returns the registered casino identifier and the cookies. The document is not copied
+// into the project. expires wins over maxAge. maxAge is seconds added to now when expires
+// is absent. Cookie values are not included in errors.
+func Parse(path string, now time.Time) (string, []Cookie, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("read session file: %w", err)
+		return "", nil, fmt.Errorf("read session file: %w", err)
 	}
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	var doc struct {
+		Casino  string            `json:"casino"`
 		Cookies []json.RawMessage `json:"cookies"`
 	}
 	if err := dec.Decode(&doc); err != nil {
-		return nil, fmt.Errorf("session file: %w", err)
+		return "", nil, fmt.Errorf("session file: %w", err)
 	}
 	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("session file: extra data")
+		return "", nil, fmt.Errorf("session file: extra data")
+	}
+	if doc.Casino == "" {
+		return "", nil, fmt.Errorf("session file: casino is required")
+	}
+	found, err := casino.Lookup(doc.Casino)
+	if err != nil {
+		return "", nil, err
 	}
 	if len(doc.Cookies) < 1 {
-		return nil, fmt.Errorf("session file: cookies must contain at least one cookie")
+		return "", nil, fmt.Errorf("session file: cookies must contain at least one cookie")
 	}
 	out := make([]Cookie, 0, len(doc.Cookies))
 	for i, rawCookie := range doc.Cookies {
 		c, err := decodeCookie(rawCookie, now)
 		if err != nil {
-			return nil, fmt.Errorf("session file: cookie %d: %w", i, err)
+			return "", nil, fmt.Errorf("session file: cookie %d: %w", i, err)
 		}
 		out = append(out, c)
 	}
-	return out, nil
+	return found.ID, out, nil
 }
 
 func decodeCookie(raw json.RawMessage, now time.Time) (Cookie, error) {

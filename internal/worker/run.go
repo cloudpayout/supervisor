@@ -126,12 +126,16 @@ func openTarget(casinoID, sessionFile string) (string, []session.Cookie, error) 
 	if sessionFile == "" {
 		return "about:blank", nil, nil
 	}
-	cookies, err := session.Parse(sessionFile, time.Now())
+	fileCasino, cookies, err := session.Parse(sessionFile, time.Now())
 	if err != nil {
 		return "", nil, err
 	}
+	// specs/005-start-command-syntax: casino comes from the registry row set by start.
 	if casinoID == "" {
-		casinoID = "onewin"
+		return "", nil, fmt.Errorf("session file requires a casino on the instance")
+	}
+	if fileCasino != casinoID {
+		return "", nil, fmt.Errorf("session file casino %q does not match instance %q", fileCasino, casinoID)
 	}
 	found, err := casino.Lookup(casinoID)
 	if err != nil {
