@@ -33,7 +33,8 @@ func isUsageError(err error) bool {
 		strings.Contains(msg, "required flag") ||
 		strings.Contains(msg, "accepts") && strings.Contains(msg, "received") ||
 		strings.Contains(msg, "instance ID required") ||
-		strings.Contains(msg, "output path required")
+		strings.Contains(msg, "output path required") ||
+		strings.Contains(msg, "usage:")
 }
 
 func newRoot() *cobra.Command {

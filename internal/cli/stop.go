@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cloudpayout/supervisor/internal/browser"
 	"github.com/cloudpayout/supervisor/internal/proc"
 	"github.com/cloudpayout/supervisor/internal/registry"
 )
@@ -69,6 +70,8 @@ func runStop(id string) error {
 	proc.Terminate(after.OwnerPID)
 	proc.Terminate(after.BrowserPID)
 	proc.KillByProfile(after.ProfileDir)
+	// FR-007: remove the profile only after the browser has been asked to exit.
+	browser.RemoveProfile(after.ProfileDir)
 	err = store.Update(func(doc *registry.Document) error {
 		i := doc.Find(id)
 		if i >= 0 {

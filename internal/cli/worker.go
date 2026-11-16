@@ -14,6 +14,7 @@ func newWorkerCmd() *cobra.Command {
 	}
 	var id string
 	var headless bool
+	var sessionFile string
 	run := &cobra.Command{
 		Use:    "run",
 		Hidden: true,
@@ -22,11 +23,13 @@ func newWorkerCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return worker.Run(store, id)
+			return worker.Run(store, id, sessionFile)
 		},
 	}
 	run.Flags().StringVar(&id, "id", "", "instance id")
 	run.Flags().BoolVar(&headless, "headless", false, "headless mode")
+	// FR-001: the worker receives the session file path, not the document.
+	run.Flags().StringVar(&sessionFile, "session-file", "", "path to the session file")
 	_ = run.MarkFlagRequired("id")
 	workerCmd.AddCommand(run)
 	return workerCmd

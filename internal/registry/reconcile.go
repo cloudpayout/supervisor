@@ -3,6 +3,7 @@ package registry
 import (
 	"time"
 
+	"github.com/cloudpayout/supervisor/internal/browser"
 	"github.com/cloudpayout/supervisor/internal/proc"
 )
 
@@ -80,6 +81,8 @@ func Apply(doc *Document, now time.Time) []Reap {
 		}
 		if r.ProfileDir != "" {
 			proc.KillByProfile(r.ProfileDir)
+			// FR-007: a browser that exits outside stop loses its profile too.
+			browser.RemoveProfile(r.ProfileDir)
 		}
 	}
 	next := doc.Instances[:0]
