@@ -1,19 +1,11 @@
 <!--
 Sync Impact Report
-- Version change: unratified template → 1.0.0
+- Version change: 1.0.0 → 1.1.0
 - Modified principles:
-  - [PRINCIPLE_1_NAME] → I. Spec Before Implementation
-  - [PRINCIPLE_2_NAME] → II. CLI as the Operator Interface
-  - [PRINCIPLE_3_NAME] → III. Single Shared Browser Session
-  - [PRINCIPLE_4_NAME] → IV. Supervisor Owns the Run
-  - [PRINCIPLE_5_NAME] → V. Named Games Only
-- Added sections:
-  - Technical Constraints
-  - Delivery Workflow
+  - V. Named Casinos and Games Only: casino and game identifiers MUST match ^[a-z]+$
+- Added sections: none
 - Removed sections: none
 - Follow-up TODOs: none
-- Sources: GitHub README (17fb175), go.mod, .specify/init-options.json.
-  This worktree's README is still the stub "# Supervisor".
 -->
 
 # Cloudpayout Supervisor Constitution
@@ -58,11 +50,15 @@ session only for the life of a run Supervisor started.
 
 ### V. Named Casinos and Games Only
 
-Supervisor MUST start automations only for casinos and games it explicitly supports. 
-Every casino has games that can be run.
+Supervisor MUST start automations only for casinos and games it explicitly supports.
+Every casino has games that can be run. Each casino identifier and each game
+identifier MUST be one or more lowercase ASCII letters (`a-z`). Digits,
+punctuation, and uppercase letters MUST NOT appear in an identifier. A host or
+a URL MUST NOT be used as an identifier.
 
 Rationale: The product runs automations on registered games from casinos. Growth of that
-set is an explicit decision, not an implied default.
+set is an explicit decision, not an implied default. One lowercase spelling makes the
+registered name unambiguous. `onewin` is an identifier. `1win.com` is a URL.
 
 ## Technical Constraints
 
@@ -111,4 +107,4 @@ Plans, tasks, and reviews MUST check compliance with this constitution. A MUST
 violation is a blocking defect. Extra complexity beyond these principles MUST
 be justified in the feature plan.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-29 | **Last Amended**: 2026-10-29
+**Version**: 1.1.0 | **Ratified**: 2026-10-29 | **Last Amended**: 2026-11-15
