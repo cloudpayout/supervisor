@@ -17,6 +17,7 @@ import (
 
 	"github.com/cloudpayout/supervisor/internal/browser"
 	"github.com/cloudpayout/supervisor/internal/casino"
+	"github.com/cloudpayout/supervisor/internal/logfmt"
 	"github.com/cloudpayout/supervisor/internal/proc"
 	"github.com/cloudpayout/supervisor/internal/registry"
 	"github.com/cloudpayout/supervisor/internal/session"
@@ -24,7 +25,7 @@ import (
 
 // Run owns one chromedp session until the browser exits or SIGTERM arrives.
 // sessionFile is empty for a blank start, which still opens about:blank (FR-010 of feature 001).
-func Run(reg registry.Store, id, sessionFile string) error {
+func Run(reg registry.Store, id, sessionFile, logPath string) error {
 	var inst registry.Instance
 	err := reg.View(func(doc *registry.Document) error {
 		i := doc.Find(id)
@@ -37,6 +38,18 @@ func Run(reg registry.Store, id, sessionFile string) error {
 	if err != nil {
 		return err
 	}
+	if logPath == "" {
+		logPath = inst.LogPath
+	}
+	sink, err := logfmt.Open(logPath, cookieSecrets(sessionFile))
+	if err != nil {
+		return err
+	}
+	defer sink.Close()
+	if _, err := logfmt.AttachProcessStreams(sink); err != nil {
+		return err
+	}
+	sink.Notice("worker started")
 	headless := false
 	if inst.Headless != nil {
 		headless = *inst.Headless
@@ -63,17 +76,21 @@ func Run(reg registry.Store, id, sessionFile string) error {
 
 	page, cookies, prefs, err := openTarget(inst.Casino, sessionFile)
 	if err != nil {
+		sink.Error(err.Error())
 		return err
 	}
 	if err := chromedp.Do(taskCtx, openActions(page, cookies)...); err != nil {
 		if sessionFile == "" {
+			sink.Error(err.Error())
 			return fmt.Errorf("open about:blank: %w", err)
 		}
+		sink.Error("open page")
 		return fmt.Errorf("open page")
 	}
 
 	browserPID, err = findBrowserPID(inst.ProfileDir)
 	if err != nil {
+		sink.Error(err.Error())
 		return err
 	}
 	layout, err := registry.Resolve()
@@ -101,7 +118,11 @@ func Run(reg registry.Store, id, sessionFile string) error {
 		return nil
 	})
 	if err != nil {
+		sink.Error(err.Error())
 		return err
+	}
+	if sessionFile != "" && inst.Casino == "onewin" {
+		sink.Notice("entry entering")
 	}
 
 	listenCtx, listenCancel := context.WithCancel(context.Background())
@@ -122,6 +143,7 @@ func Run(reg registry.Store, id, sessionFile string) error {
 
 	if sessionFile != "" && inst.Casino == "onewin" {
 		if err := EnterAviator(taskCtx, prefs); err != nil {
+			sink.Error(err.Error())
 			stopCapture(listenCancel, captureDone, socketPath)
 			return err
 		}
@@ -133,14 +155,33 @@ func Run(reg registry.Store, id, sessionFile string) error {
 			doc.Instances[i].Entry = "ready"
 			return nil
 		}); err != nil {
+			sink.Error(err.Error())
 			stopCapture(listenCancel, captureDone, socketPath)
 			return err
 		}
+		sink.Notice("entry ready")
 	}
 
 	<-taskCtx.Done()
 	stopCapture(listenCancel, captureDone, socketPath)
 	return nil
+}
+
+func cookieSecrets(sessionFile string) []string {
+	if sessionFile == "" {
+		return nil
+	}
+	_, cookies, _, err := session.Parse(sessionFile, time.Now())
+	if err != nil {
+		return nil
+	}
+	out := make([]string, 0, len(cookies))
+	for _, c := range cookies {
+		if c.Value != "" {
+			out = append(out, c.Value)
+		}
+	}
+	return out
 }
 
 func openTarget(casinoID, sessionFile string) (string, []session.Cookie, session.PlayPreferences, error) {

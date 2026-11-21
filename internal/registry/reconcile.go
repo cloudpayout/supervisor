@@ -82,6 +82,7 @@ func Apply(doc *Document, now time.Time) []Reap {
 		if r.ProfileDir != "" {
 			proc.KillByProfile(r.ProfileDir)
 			// FR-007: a browser that exits outside stop loses its profile too.
+			// Feature 008 FR-009b: instance log files under state/logs are kept.
 			browser.RemoveProfile(r.ProfileDir)
 		}
 	}
