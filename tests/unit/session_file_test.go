@@ -26,7 +26,7 @@ func TestSessionFileRules(t *testing.T) {
 	}
 	_ = ok
 
-	casinoID, got, err := session.Parse(write("full.json", `{
+	casinoID, got, _, err := session.Parse(write("full.json", `{
 		"casino": "onewin",
 		"cookies": [{
 			"name": "session-id",
@@ -54,7 +54,7 @@ func TestSessionFileRules(t *testing.T) {
 		t.Fatalf("expires %+v", got[0].Expires)
 	}
 
-	_, aged, err := session.Parse(write("age.json", `{"casino":"onewin","cookies":[{"name":"a","value":"b","maxAge":90}]}`), now)
+	_, aged, _, err := session.Parse(write("age.json", `{"casino":"onewin","cookies":[{"name":"a","value":"b","maxAge":90}]}`), now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func TestSessionFileRules(t *testing.T) {
 		t.Fatalf("maxAge expiry %+v", aged[0].Expires)
 	}
 
-	_, two, err := session.Parse(write("two.json", `{"casino":"onewin","cookies":[{"name":"a","value":"b"},{"name":"c","value":"d"}]}`), now)
+	_, two, _, err := session.Parse(write("two.json", `{"casino":"onewin","cookies":[{"name":"a","value":"b"},{"name":"c","value":"d"}]}`), now)
 	if err != nil || len(two) != 2 {
 		t.Fatalf("%v %+v", err, two)
 	}
@@ -85,13 +85,36 @@ func TestSessionFileRules(t *testing.T) {
 		{"fractional maxAge", `{"casino":"onewin","cookies":[{"name":"a","value":"b","maxAge":1.5}]}`},
 		{"bad sameSite", `{"casino":"onewin","cookies":[{"name":"a","value":"b","sameSite":"Maybe"}]}`},
 		{"unknown", `{"casino":"onewin","cookies":[{"name":"a","value":"` + secret + `","extra":true}]}`},
+		{"bad currency", `{"casino":"onewin","currency":"mxn","cookies":[{"name":"a","value":"b"}]}`},
+		{"bad locale", `{"casino":"onewin","locale":"es/MX","cookies":[{"name":"a","value":"b"}]}`},
 	} {
-		_, _, err := session.Parse(write(tc.name+".json", tc.body), now)
+		_, _, _, err := session.Parse(write(tc.name+".json", tc.body), now)
 		if err == nil {
 			t.Fatalf("%s accepted", tc.name)
 		}
 		if strings.Contains(err.Error(), secret) {
 			t.Fatalf("%s error contains the cookie value: %v", tc.name, err)
 		}
+	}
+
+	_, _, prefs, err := session.Parse(write("prefs.json", `{
+		"casino":"onewin",
+		"currency":"MXN",
+		"demo":true,
+		"locale":"es-MX",
+		"cookies":[{"name":"a","value":"b"}]
+	}`), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if prefs.Currency != "MXN" || !prefs.Demo || prefs.Locale != "es-MX" {
+		t.Fatalf("%+v", prefs)
+	}
+	_, _, defaults, err := session.Parse(write("defaults.json", `{"casino":"onewin","cookies":[{"name":"a","value":"b"}]}`), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if defaults.Currency != "" || defaults.Demo || defaults.Locale != "" {
+		t.Fatalf("defaults %+v", defaults)
 	}
 }

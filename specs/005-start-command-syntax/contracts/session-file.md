@@ -31,3 +31,5 @@ The file is JSON. `start` passes only the filesystem path as the positional argu
 | `cookies` | Same as feature 004: length ≥ 1; cookie field rules unchanged. |
 
 Unknown fields are an error. `name` and `value` on each cookie are required. The example value `secret` is not a real session and must not be committed.
+
+Feature 007 adds optional `currency`, `demo`, and `locale` on the same document. Files that omit those keys stay valid under this contract. See the [007 session-file contract](../../007-enter-aviator-onewin/contracts/session-file.md).

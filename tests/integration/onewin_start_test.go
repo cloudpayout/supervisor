@@ -21,7 +21,8 @@ func TestOneWinStartAppliesCookie(t *testing.T) {
 	}`)
 	id := startCasino(t, bin, env, file)
 	t.Cleanup(func() { stopID(t, bin, env, id) })
-	inst := waitRunning(t, regPath, id)
+	waitRunning(t, regPath, id)
+	inst := waitEntry(t, regPath, id, "ready")
 	if inst.Casino != "onewin" {
 		t.Fatalf("casino %q", inst.Casino)
 	}
@@ -40,6 +41,7 @@ func TestOneWinStartAppliesCookie(t *testing.T) {
 	id2 := startCasino(t, bin, env2, plain)
 	t.Cleanup(func() { stopID(t, bin, env2, id2) })
 	waitRunning(t, reg2, id2)
+	waitEntry(t, reg2, id2, "ready")
 	if sawShown(withheld) {
 		t.Fatalf("withheld page showed balance: %+v", withheld.hitsCopy())
 	}
@@ -57,6 +59,7 @@ func TestOneWinStartAppliesCookie(t *testing.T) {
 	id3 := startCasino(t, bin, env3, two)
 	t.Cleanup(func() { stopID(t, bin, env3, id3) })
 	waitRunning(t, reg3, id3)
+	waitEntry(t, reg3, id3, "ready")
 	hit := lastHit(t, both)
 	if !hit.shown || !strings.Contains(hit.cookie, "session-id="+secret) || !strings.Contains(hit.cookie, "other=second") {
 		t.Fatalf("two cookies: %+v", hit)
@@ -74,6 +77,7 @@ func TestOneWinStartAppliesCookie(t *testing.T) {
 	idOrder := strings.TrimSpace(string(outOrder))
 	t.Cleanup(func() { stopID(t, bin, envOrder, idOrder) })
 	waitRunning(t, regOrder, idOrder)
+	waitEntry(t, regOrder, idOrder, "ready")
 	if !sawShown(ordered) {
 		t.Fatalf("flag-first start did not show balance: %+v", ordered.hitsCopy())
 	}

@@ -82,7 +82,7 @@ func renderStatus(store registry.Store, clearScreen bool) error {
 		return nil
 	}
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tSTATE\tCPU%\tMEMORY")
+	fmt.Fprintln(w, "ID\tSTATE\tENTRY\tCPU%\tMEMORY")
 	shown := 0
 	for _, inst := range rows {
 		if inst.State != registry.StateStarting && inst.State != registry.StateRunning {
@@ -97,7 +97,7 @@ func renderStatus(store registry.Store, clearScreen bool) error {
 				mem = fmt.Sprintf("%.1f MiB", float64(snap.MemoryRSS)/1024/1024)
 			}
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", inst.ID, inst.State, cpu, mem)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", inst.ID, inst.State, inst.Entry, cpu, mem)
 	}
 	if shown == 0 {
 		fmt.Println("No instances are running.")
