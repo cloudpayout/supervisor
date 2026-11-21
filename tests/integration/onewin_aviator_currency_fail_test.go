@@ -33,16 +33,27 @@ func TestAviatorCurrencyFailRemovesInstance(t *testing.T) {
 	for time.Now().Before(deadline) {
 		var err error
 		raw, err = os.ReadFile(filepathLog(t, env, id))
-		if err == nil && strings.Contains(string(raw), "supervisor: currency") {
+		if err == nil && strings.Contains(string(raw), " ERROR currency") {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	if !strings.Contains(string(raw), "supervisor: currency") {
+	if !strings.Contains(string(raw), " ERROR currency") {
 		t.Fatalf("worker log missing internal currency failure: %s", raw)
 	}
 	if strings.Contains(string(raw), secret) {
 		t.Fatal("worker log contains the cookie value")
+	}
+	one := runLogs(t, bin, env, id)
+	if one.code != 0 || !strings.Contains(one.stdout, " ERROR currency") {
+		t.Fatalf("logs %s: code %d stdout %q stderr %q", id, one.code, one.stdout, one.stderr)
+	}
+	if !strings.Contains(one.stderr, "no longer in status") {
+		t.Fatalf("stderr %q", one.stderr)
+	}
+	recent := runLogs(t, bin, env, "--recent")
+	if !strings.Contains(recent.stdout, id) || !strings.Contains(recent.stdout, "currency") {
+		t.Fatalf("recent: %s", recent.stdout)
 	}
 }
 

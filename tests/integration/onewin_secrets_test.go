@@ -44,6 +44,13 @@ func TestOneWinSecretStaysOffTheRecord(t *testing.T) {
 	assertNoSecret(t, secret, cmdline(t, inst.BrowserPID), "browser cmdline")
 	log, _ := os.ReadFile(inst.LogPath)
 	assertNoSecret(t, secret, log, "worker log")
+	logsCmd := exec.Command(bin, "logs", id)
+	logsCmd.Env = env
+	logsOut, logsErr := logsCmd.CombinedOutput()
+	if logsErr != nil {
+		t.Fatalf("logs: %v %s", logsErr, logsOut)
+	}
+	assertNoSecret(t, secret, logsOut, "logs command")
 	raw, err := os.ReadFile(regPath)
 	if err != nil {
 		t.Fatal(err)

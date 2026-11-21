@@ -35,7 +35,8 @@ func isUsageError(err error) bool {
 		strings.Contains(msg, "accepts") && strings.Contains(msg, "received") ||
 		strings.Contains(msg, "instance ID required") ||
 		strings.Contains(msg, "output path required") ||
-		strings.Contains(msg, "usage:")
+		strings.Contains(msg, "usage:") ||
+		strings.Contains(msg, "invalid --level")
 }
 
 func newRoot() *cobra.Command {
@@ -50,6 +51,7 @@ func newRoot() *cobra.Command {
 	root.AddCommand(newStatusCmd())
 	root.AddCommand(newStopCmd())
 	root.AddCommand(newScreenshotCmd())
+	root.AddCommand(newLogsCmd())
 	root.AddCommand(newWorkerCmd())
 	return root
 }

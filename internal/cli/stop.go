@@ -71,6 +71,7 @@ func runStop(id string) error {
 	proc.Terminate(after.BrowserPID)
 	proc.KillByProfile(after.ProfileDir)
 	// FR-007: remove the profile only after the browser has been asked to exit.
+	// Feature 008 FR-009b: do not delete the instance log file.
 	browser.RemoveProfile(after.ProfileDir)
 	err = store.Update(func(doc *registry.Document) error {
 		i := doc.Find(id)

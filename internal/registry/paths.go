@@ -35,8 +35,13 @@ func (l Layout) RegistryPath() string {
 	return filepath.Join(l.StateDir, "instances.json")
 }
 
+// LogsDir is the directory of per-instance log files (feature 008).
+func (l Layout) LogsDir() string {
+	return filepath.Join(l.StateDir, "logs")
+}
+
 func (l Layout) LogPath(id string) string {
-	return filepath.Join(l.StateDir, "logs", id+".log")
+	return filepath.Join(l.LogsDir(), id+".log")
 }
 
 func (l Layout) ProfileDir(id string) string {

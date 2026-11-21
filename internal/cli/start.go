@@ -106,23 +106,29 @@ func runStart(headless bool, sessionPath string) error {
 		rollbackStart(store, id, profile)
 		return err
 	}
-	args := []string{"worker", "run", "--id", id}
+	_ = logf.Close()
+	args := []string{"worker", "run", "--id", id, "--log-path", logPath}
 	if headless {
 		args = append(args, "--headless")
 	}
 	if sessionPath != "" {
 		args = append(args, "--session-file", sessionPath)
 	}
+	devnull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	if err != nil {
+		rollbackStart(store, id, profile)
+		return err
+	}
+	defer devnull.Close()
 	worker := exec.Command(os.Args[0], args...)
-	worker.Stdout = logf
-	worker.Stderr = logf
+	// The worker reopens the log and wraps its own stdout/stderr (FR-002b).
+	worker.Stdout = devnull
+	worker.Stderr = devnull
 	worker.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := worker.Start(); err != nil {
-		logf.Close()
 		rollbackStart(store, id, profile)
 		return fmt.Errorf("start worker: %w", err)
 	}
-	_ = logf.Close()
 	_ = worker.Process.Release()
 	fmt.Println(id)
 	return nil
