@@ -14,6 +14,12 @@ func TestCatalogOneWin(t *testing.T) {
 	if got.ID != "onewin" || got.Page != "https://1win.com/" || got.Game != "aviator" {
 		t.Fatalf("%+v", got)
 	}
+	if casino.PlayURL("") != "https://1win.com/casino/play/v_spribe:aviator" {
+		t.Fatalf("default play url %s", casino.PlayURL(""))
+	}
+	if casino.PlayURL("es-MX") != "https://1win.com/es-MX/casino/play/v_spribe:aviator" {
+		t.Fatalf("locale play url %s", casino.PlayURL("es-MX"))
+	}
 }
 
 func TestCatalogRejectsNonIdentifiers(t *testing.T) {

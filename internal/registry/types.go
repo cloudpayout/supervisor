@@ -30,6 +30,9 @@ type Instance struct {
 	// Casino is the registered identifier, such as onewin. A blank start omits it.
 	// It is not a cookie, a session path, or a page address (FR-005, FR-006).
 	Casino string `json:"casino,omitempty"`
+	// Entry is entering or ready while onewin Aviator entry is in progress or done.
+	// A blank start omits it. Failure removes the row instead of storing a reason.
+	Entry string `json:"entry,omitempty"`
 }
 
 // Document is the on-disk registry (schema_version const 1).

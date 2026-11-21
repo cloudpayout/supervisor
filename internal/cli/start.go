@@ -50,7 +50,7 @@ func newStartCmd() *cobra.Command {
 func runStart(headless bool, sessionPath string) error {
 	var casinoID string
 	if sessionPath != "" {
-		id, _, err := session.Parse(sessionPath, time.Now())
+		id, _, _, err := session.Parse(sessionPath, time.Now())
 		if err != nil {
 			return err
 		}

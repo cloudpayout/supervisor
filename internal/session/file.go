@@ -7,10 +7,22 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/cloudpayout/supervisor/internal/casino"
 )
+
+// PlayPreferences are optional Aviator entry choices from a session file.
+// Currency empty means the first modal option. Demo false means real play.
+type PlayPreferences struct {
+	Currency string
+	Demo     bool
+	Locale   string
+}
+
+var currencyCode = regexp.MustCompile(`^[A-Z]{3}$`)
 
 // Cookie is one browser cookie from a session file. Value stays in this process.
 // It is not written to the registry, the command line, the worker log, or an error (FR-005).
@@ -43,42 +55,69 @@ type rawCookie struct {
 // It returns the registered casino identifier and the cookies. The document is not copied
 // into the project. expires wins over maxAge. maxAge is seconds added to now when expires
 // is absent. Cookie values are not included in errors.
-func Parse(path string, now time.Time) (string, []Cookie, error) {
+func Parse(path string, now time.Time) (string, []Cookie, PlayPreferences, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return "", nil, fmt.Errorf("read session file: %w", err)
+		return "", nil, PlayPreferences{}, fmt.Errorf("read session file: %w", err)
 	}
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	var doc struct {
-		Casino  string            `json:"casino"`
-		Cookies []json.RawMessage `json:"cookies"`
+		Casino   string            `json:"casino"`
+		Cookies  []json.RawMessage `json:"cookies"`
+		Currency *string           `json:"currency"`
+		Demo     *bool             `json:"demo"`
+		Locale   *string           `json:"locale"`
 	}
 	if err := dec.Decode(&doc); err != nil {
-		return "", nil, fmt.Errorf("session file: %w", err)
+		return "", nil, PlayPreferences{}, fmt.Errorf("session file: %w", err)
 	}
 	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return "", nil, fmt.Errorf("session file: extra data")
+		return "", nil, PlayPreferences{}, fmt.Errorf("session file: extra data")
 	}
 	if doc.Casino == "" {
-		return "", nil, fmt.Errorf("session file: casino is required")
+		return "", nil, PlayPreferences{}, fmt.Errorf("session file: casino is required")
 	}
 	found, err := casino.Lookup(doc.Casino)
 	if err != nil {
-		return "", nil, err
+		return "", nil, PlayPreferences{}, err
+	}
+	prefs, err := preferences(doc.Currency, doc.Demo, doc.Locale)
+	if err != nil {
+		return "", nil, PlayPreferences{}, fmt.Errorf("session file: %w", err)
 	}
 	if len(doc.Cookies) < 1 {
-		return "", nil, fmt.Errorf("session file: cookies must contain at least one cookie")
+		return "", nil, PlayPreferences{}, fmt.Errorf("session file: cookies must contain at least one cookie")
 	}
 	out := make([]Cookie, 0, len(doc.Cookies))
 	for i, rawCookie := range doc.Cookies {
 		c, err := decodeCookie(rawCookie, now)
 		if err != nil {
-			return "", nil, fmt.Errorf("session file: cookie %d: %w", i, err)
+			return "", nil, PlayPreferences{}, fmt.Errorf("session file: cookie %d: %w", i, err)
 		}
 		out = append(out, c)
 	}
-	return found.ID, out, nil
+	return found.ID, out, prefs, nil
+}
+
+func preferences(currency *string, demo *bool, locale *string) (PlayPreferences, error) {
+	var prefs PlayPreferences
+	if currency != nil {
+		if !currencyCode.MatchString(*currency) {
+			return PlayPreferences{}, fmt.Errorf("currency must be three uppercase letters")
+		}
+		prefs.Currency = *currency
+	}
+	if demo != nil {
+		prefs.Demo = *demo
+	}
+	if locale != nil {
+		if *locale == "" || strings.ContainsAny(*locale, "/\\") {
+			return PlayPreferences{}, fmt.Errorf("locale must be one path segment")
+		}
+		prefs.Locale = *locale
+	}
+	return prefs, nil
 }
 
 func decodeCookie(raw json.RawMessage, now time.Time) (Cookie, error) {

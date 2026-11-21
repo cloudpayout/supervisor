@@ -82,13 +82,22 @@ func TestStopLifecycleMessages(t *testing.T) {
 
 func readDoc(t *testing.T, path string) registry.Document {
 	t.Helper()
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
+	var last error
+	for i := 0; i < 10; i++ {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			last = err
+			time.Sleep(20 * time.Millisecond)
+			continue
+		}
+		var doc registry.Document
+		if err := json.Unmarshal(raw, &doc); err != nil {
+			last = err
+			time.Sleep(20 * time.Millisecond)
+			continue
+		}
+		return doc
 	}
-	var doc registry.Document
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		t.Fatal(err)
-	}
-	return doc
+	t.Fatal(last)
+	return registry.Document{}
 }

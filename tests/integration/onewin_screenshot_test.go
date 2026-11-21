@@ -24,6 +24,7 @@ func TestOneWinScreenshotShowsBalance(t *testing.T) {
 	id := startCasino(t, bin, env, file)
 	t.Cleanup(func() { stopID(t, bin, env, id) })
 	before := waitRunning(t, regPath, id)
+	waitEntry(t, regPath, id, "ready")
 	assertStatusRunning(t, bin, env, id)
 
 	work := t.TempDir()
@@ -55,6 +56,7 @@ func TestOneWinScreenshotShowsBalance(t *testing.T) {
 	id2 := startCasino(t, bin, env2, plain)
 	t.Cleanup(func() { stopID(t, bin, env2, id2) })
 	waitRunning(t, reg2, id2)
+	waitEntry(t, reg2, id2, "ready")
 	assertStatusRunning(t, bin, env2, id2)
 	work2 := t.TempDir()
 	name2 := screenshotOnce(t, bin, env2, work2, id2)

@@ -10,6 +10,7 @@ JSON on disk. Read when `start` receives a positional path. Not copied into the 
 |-------|------|
 | `casino` | Required string when a path is passed. Must pass `casino.Lookup` (`onewin` only today). Missing, empty, wrong case, URL-shaped values, and unknown casinos fail parse before an instance is registered. |
 | `cookies` | Required array, length ≥ 1. Same cookie objects and validation as feature 004. |
+| `currency`, `demo`, `locale` | Optional. Added by feature 007. Omitted keys keep the 004/005 document valid. Rules: [007 session-file contract](../007-enter-aviator-onewin/contracts/session-file.md). |
 
 Shape for `onewin`:
 

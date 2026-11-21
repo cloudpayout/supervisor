@@ -61,7 +61,7 @@ func Run(reg registry.Store, id, sessionFile string) error {
 		_ = remove(reg, id)
 	}()
 
-	page, cookies, err := openTarget(inst.Casino, sessionFile)
+	page, cookies, prefs, err := openTarget(inst.Casino, sessionFile)
 	if err != nil {
 		return err
 	}
@@ -95,6 +95,9 @@ func Run(reg registry.Store, id, sessionFile string) error {
 		doc.Instances[i].OwnerPID = owner
 		doc.Instances[i].BrowserPID = browserPID
 		doc.Instances[i].LastSeenAt = &now
+		if sessionFile != "" && inst.Casino == "onewin" {
+			doc.Instances[i].Entry = "entering"
+		}
 		return nil
 	})
 	if err != nil {
@@ -117,35 +120,67 @@ func Run(reg registry.Store, id, sessionFile string) error {
 		return err
 	}
 
+	if sessionFile != "" && inst.Casino == "onewin" {
+		if err := EnterAviator(taskCtx, prefs); err != nil {
+			stopCapture(listenCancel, captureDone, socketPath)
+			return err
+		}
+		if err := reg.Update(func(doc *registry.Document) error {
+			i := doc.Find(id)
+			if i < 0 {
+				return fmt.Errorf("instance %s disappeared", id)
+			}
+			doc.Instances[i].Entry = "ready"
+			return nil
+		}); err != nil {
+			stopCapture(listenCancel, captureDone, socketPath)
+			return err
+		}
+	}
+
 	<-taskCtx.Done()
 	stopCapture(listenCancel, captureDone, socketPath)
 	return nil
 }
 
-func openTarget(casinoID, sessionFile string) (string, []session.Cookie, error) {
+func openTarget(casinoID, sessionFile string) (string, []session.Cookie, session.PlayPreferences, error) {
 	if sessionFile == "" {
-		return "about:blank", nil, nil
+		return "about:blank", nil, session.PlayPreferences{}, nil
 	}
-	fileCasino, cookies, err := session.Parse(sessionFile, time.Now())
+	fileCasino, cookies, prefs, err := session.Parse(sessionFile, time.Now())
 	if err != nil {
-		return "", nil, err
+		return "", nil, session.PlayPreferences{}, err
 	}
 	// specs/005-start-command-syntax: casino comes from the registry row set by start.
 	if casinoID == "" {
-		return "", nil, fmt.Errorf("session file requires a casino on the instance")
+		return "", nil, session.PlayPreferences{}, fmt.Errorf("session file requires a casino on the instance")
 	}
 	if fileCasino != casinoID {
-		return "", nil, fmt.Errorf("session file casino %q does not match instance %q", fileCasino, casinoID)
+		return "", nil, session.PlayPreferences{}, fmt.Errorf("session file casino %q does not match instance %q", fileCasino, casinoID)
 	}
-	found, err := casino.Lookup(casinoID)
-	if err != nil {
-		return "", nil, err
+	if _, err := casino.Lookup(casinoID); err != nil {
+		return "", nil, session.PlayPreferences{}, err
 	}
-	page := found.Page
+	page := casino.PlayURL(prefs.Locale)
 	if override := os.Getenv("SUPERVISOR_PAGE_URL"); override != "" {
-		page = override
+		// Keep the loopback origin and still expose the locale path segment
+		// so stand-in tests can see FR-003 without contacting the live site.
+		page = standInPage(override, prefs.Locale)
 	}
-	return page, cookies, nil
+	return page, cookies, prefs, nil
+}
+
+func standInPage(override, locale string) string {
+	if locale == "" {
+		return override
+	}
+	u, err := url.Parse(override)
+	if err != nil || u.Host == "" {
+		return override
+	}
+	u.Path = "/" + locale + "/"
+	u.RawQuery = ""
+	return u.String()
 }
 
 func openActions(page string, cookies []session.Cookie) []chromedp.Action[chromedp.Void] {

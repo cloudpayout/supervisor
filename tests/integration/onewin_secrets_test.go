@@ -34,6 +34,7 @@ func TestOneWinSecretStaysOffTheRecord(t *testing.T) {
 	}
 	t.Cleanup(func() { stopID(t, bin, env, id) })
 	inst := waitRunning(t, regPath, id)
+	waitEntry(t, regPath, id, "ready")
 
 	workerArgv := cmdline(t, inst.OwnerPID)
 	if !bytes.Contains(workerArgv, []byte("--session-file")) || !bytes.Contains(workerArgv, []byte(file)) {
