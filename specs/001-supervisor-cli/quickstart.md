@@ -69,7 +69,7 @@ Optional: `export XDG_STATE_HOME=/tmp/supervisor-test-state` and `export XDG_DAT
 
 ## Scenario E — Empty status (SC-005)
 
-1. Ensure no instances (stop all or fresh state dir).
+1. Ensure no instances (`./supervisor stop all` or a fresh state dir).
 2. Run `./supervisor status`.
 3. **Expect**: Plain-language empty message, not an error exit.
 
