@@ -13,7 +13,7 @@ Runnable checks after implementation. See [cli contract](./contracts/cli.md) and
 2. Run `./supervisor status`.
 3. **Expect**: Table with `id` printed **once**; shell prompt returns immediately (no Ctrl+C).
 4. **Expect**: Terminal screen **not** cleared (scrollback/history still visible on TTY).
-5. Run again with no instances (stop all); **expect** `No instances are running.` and immediate exit.
+5. Stop remaining instances with `./supervisor stop all` (or `./supervisor stop "$id"`), then run `./supervisor status` again; **expect** `No instances are running.` and immediate exit.
 
 **Spec refs**: FR-001, FR-003; User Story 1.
 
