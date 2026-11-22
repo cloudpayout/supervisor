@@ -79,7 +79,16 @@ func Run(reg registry.Store, id, sessionFile, logPath string) error {
 		sink.Error(err.Error())
 		return err
 	}
-	if err := chromedp.Do(taskCtx, openActions(page, cookies)...); err != nil {
+	open := openActions(page, cookies)
+	if headless {
+		open = append(
+			[]chromedp.Action[chromedp.Void]{
+				chromedp.EmulateViewport(browser.HeadlessViewportWidth, browser.HeadlessViewportHeight),
+			},
+			open...,
+		)
+	}
+	if err := chromedp.Do(taskCtx, open...); err != nil {
 		if sessionFile == "" {
 			sink.Error(err.Error())
 			return fmt.Errorf("open about:blank: %w", err)

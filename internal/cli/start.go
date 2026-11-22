@@ -25,7 +25,7 @@ func newStartCmd() *cobra.Command {
 		Short: "Start an isolated browser",
 		Long: "Starts one browser instance. Pass a session file path to open that casino's page. " +
 			"Omit the path to open a blank page. The default is a visible window. " +
-			"Pass --headless to run without a window.",
+			"Pass --headless to run without a window with a 1280x720 layout.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// pflag treats an undefined -h as help. A hidden flag claims that
@@ -40,7 +40,7 @@ func newStartCmd() *cobra.Command {
 			return runStart(headless, path)
 		},
 	}
-	cmd.Flags().BoolVar(&headless, "headless", false, "Run Chrome without a window")
+	cmd.Flags().BoolVar(&headless, "headless", false, "Run Chrome without a window (1280x720 layout)")
 	cmd.Flags().Bool("help", false, "help for start")
 	cmd.Flags().BoolP("shorthand-h", "h", false, "rejected")
 	_ = cmd.Flags().MarkHidden("shorthand-h")
