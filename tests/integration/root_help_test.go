@@ -30,6 +30,9 @@ func TestRootHelpNoCompletion(t *testing.T) {
 		if strings.Contains(text, "worker") {
 			t.Fatalf("%v: help must not list worker:\n%s", args, text)
 		}
+		if strings.Contains(text, "\n  clear ") {
+			t.Fatalf("%v: help lists top-level clear:\n%s", args, text)
+		}
 	}
 }
 
@@ -61,5 +64,20 @@ func TestCompletionUnknownCommand(t *testing.T) {
 		if !strings.Contains(stderr.String(), tc.stderrNeed) {
 			t.Fatalf("%v: stderr want %q, got %q", tc.args, tc.stderrNeed, stderr.String())
 		}
+	}
+}
+
+func TestRootClearUnknownCommand(t *testing.T) {
+	bin := supervisorBin(t)
+	env, _ := isolatedEnv(t)
+	cmd := execCommand(bin, env, "clear")
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if exitCode(err) != 2 {
+		t.Fatalf("exit %v stdout %q stderr %q", err, out, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "unknown command") {
+		t.Fatalf("stderr: %q", stderr.String())
 	}
 }

@@ -23,12 +23,13 @@ func newLogsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logs [instance-id]",
 		Short: "Show instance logs or recent untracked logs",
-		Long: `Print an instance log, or list logs for instances that are no longer in status.
+		Long: `Print an instance log, list logs for instances that are no longer in status, or delete eligible log files.
 
   supervisor logs <instance-id>
   supervisor logs <instance-id> --follow
   supervisor logs <instance-id> --level error
-  supervisor logs --recent`,
+  supervisor logs --recent
+  supervisor logs clear`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if recent && follow {
 				return fmt.Errorf("usage: --follow cannot be combined with --recent")
@@ -54,6 +55,7 @@ func newLogsCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "Print new lines until interrupted")
 	cmd.Flags().BoolVar(&recent, "recent", false, "List logs for instances that are not in status")
 	cmd.Flags().StringVar(&level, "level", "", "Minimum severity: error or notice")
+	cmd.AddCommand(newLogsClearCmd())
 	return cmd
 }
 
