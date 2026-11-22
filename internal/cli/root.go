@@ -36,7 +36,9 @@ func isUsageError(err error) bool {
 		strings.Contains(msg, "instance ID required") ||
 		strings.Contains(msg, "output path required") ||
 		strings.Contains(msg, "usage:") ||
-		strings.Contains(msg, "invalid --level")
+		strings.Contains(msg, "invalid --level") ||
+		strings.Contains(msg, "requires --yes") ||
+		strings.Contains(msg, "stdin is not a terminal")
 }
 
 func newRoot() *cobra.Command {
