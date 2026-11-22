@@ -9,6 +9,12 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
+// Headless viewport dimensions (spec 012-headless-mode-viewport).
+const (
+	HeadlessViewportWidth  = 1280
+	HeadlessViewportHeight = 720
+)
+
 // Preflight fails when Chrome cannot be resolved. It does not touch the registry (FR-011).
 func Preflight() error {
 	if _, err := Executable(); err != nil {
@@ -51,7 +57,9 @@ func AllocatorOptions(profileDir string, headless bool) []chromedp.ExecAllocator
 		chromedp.NoFirstRun,
 		chromedp.NoDefaultBrowserCheck,
 	)
-	if !headless {
+	if headless {
+		opts = append(opts, chromedp.WindowSize(HeadlessViewportWidth, HeadlessViewportHeight))
+	} else {
 		opts = append(opts, chromedp.VisibleWindow)
 	}
 	// Live casino embeds Spribe in cross-site iframes; without this, the top

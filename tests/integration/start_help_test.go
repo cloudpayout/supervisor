@@ -28,6 +28,9 @@ func TestStartHelp(t *testing.T) {
 		if !strings.Contains(text, "path") || !strings.Contains(text, "blank") || !strings.Contains(text, "--headless") {
 			t.Fatalf("help missing expected text: %s", text)
 		}
+		if strings.Contains(text, "--headless") && (!strings.Contains(text, "1280") || !strings.Contains(text, "720")) {
+			t.Fatalf("help missing headless viewport dimensions: %s", text)
+		}
 		for _, banned := range []string{"--session-file", "--headed", "--casino"} {
 			if strings.Contains(text, banned) {
 				t.Fatalf("help lists %s: %s", banned, text)
