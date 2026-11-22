@@ -54,6 +54,12 @@ func AllocatorOptions(profileDir string, headless bool) []chromedp.ExecAllocator
 	if !headless {
 		opts = append(opts, chromedp.VisibleWindow)
 	}
+	// Live casino embeds Spribe in cross-site iframes; without this, the top
+	// document cannot read frame DOM and entry ready probes never succeed.
+	opts = append(opts,
+		chromedp.Flag("disable-features", "IsolateOrigins,site-per-process"),
+		chromedp.Flag("disable-site-isolation-trials", true),
+	)
 	if p, err := Executable(); err == nil {
 		opts = append(opts, chromedp.ExecPath(p))
 	}
