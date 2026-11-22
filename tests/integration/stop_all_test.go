@@ -179,6 +179,7 @@ func TestStopAllSIGINT(t *testing.T) {
 	requireChrome(t)
 	bin := supervisorBin(t)
 	env, regPath := isolatedEnv(t)
+	t.Cleanup(func() { stopAllInstancesForTeardown(t, bin, env, regPath) })
 	id1 := startHeadless(t, bin, env)
 	id2 := startHeadless(t, bin, env)
 	env = append(env, "SUPERVISOR_STOP_ALL_PAUSE=3s")
@@ -232,6 +233,34 @@ func TestStopAllSIGINT(t *testing.T) {
 	}
 	if stoppedCount < 1 {
 		t.Fatalf("expected at least one instance removed, left %+v output %s", left.Instances, out)
+	}
+}
+
+// stopAllInstancesForTeardown stops leftover instances after interrupt tests so
+// Chrome releases profile dirs before t.TempDir() cleanup (Go 1.20+).
+func stopAllInstancesForTeardown(t *testing.T, bin string, env []string, regPath string) {
+	t.Helper()
+	if _, err := os.Stat(regPath); err == nil {
+		doc := readDoc(t, regPath)
+		for _, inst := range doc.Instances {
+			stopID(t, bin, env, inst.ID)
+		}
+	}
+	_, _, _ = runStopAll(t, bin, env, nil)
+	prof := profilesDir(env)
+	if prof == "" {
+		return
+	}
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		entries, err := os.ReadDir(prof)
+		if err != nil || len(entries) == 0 {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if entries, _ := os.ReadDir(prof); len(entries) != 0 {
+		t.Errorf("profiles left after teardown: %d under %s", len(entries), prof)
 	}
 }
 
