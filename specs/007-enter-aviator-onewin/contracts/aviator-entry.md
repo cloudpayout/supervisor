@@ -20,8 +20,15 @@ No full-page reload after cookies (FR-007).
 
 Within **60s** from start of entry automation:
 
-- Launch iframe: `iframe[src*="spribelaunch.com/aviator"]` in top document.
-- Inside that frame: visible `div.game-logo` (stand-in: same structure under `[data-supervisor-game-frame]`).
+- Game iframe in the top document, matched by any of:
+  - `iframe[src*="spribelaunch.com/aviator"]` (legacy launch URL)
+  - `iframe[src*="aviaport.spribegaming.com"]` or `spribegaming.com`
+  - `iframe[src*="/aviator"]` or `aviator.html` (bundled shell on 1win)
+  - Fallback: largest visible non-tracking iframe after play activation
+- Inside that frame (or via chromedp frame context when cross-origin): visible ready marker — any of:
+  - `div.game-logo` (legacy / stand-in `?frame=1`)
+  - `.header__game-logo`, `app-game`, or `app-header` (live Aviaport shell)
+  - Stand-in live shell: `?frame=live` under `[data-supervisor-game-frame]`
 
 Success → registry `entry` = `ready`. Failure → teardown, row removed, no CLI reason string.
 

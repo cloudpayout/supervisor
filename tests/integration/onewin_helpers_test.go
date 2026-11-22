@@ -25,12 +25,13 @@ type standInEvent struct {
 }
 
 type standIn struct {
-	url        string
-	name       string
-	value      string
+	url             string
+	name            string
+	value           string
 	blockReady      bool
 	slowEntry       bool
 	delayCurrencyMS int
+	liveReadyShell  bool
 	mu         sync.Mutex
 	hits       []standInHit
 	paths      []string
@@ -73,6 +74,11 @@ func (s *standIn) serve(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `<!doctype html><html><body><div class="game-logo">aviator</div></body></html>`)
 		return
 	}
+	if r.URL.Query().Get("frame") == "live" {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprint(w, `<!doctype html><html><body><app-game><header class="header__game-logo">aviator</header></app-game></body></html>`)
+		return
+	}
 	header := r.Header.Get("Cookie")
 	shown := cookiePresent(header, s.name, s.value)
 	s.mu.Lock()
@@ -95,6 +101,10 @@ func (s *standIn) serve(w http.ResponseWriter, r *http.Request) {
 	currencyDelay := 0
 	if s.delayCurrencyMS > 0 {
 		currencyDelay = s.delayCurrencyMS
+	}
+	liveShell := "false"
+	if s.liveReadyShell {
+		liveShell = "true"
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, `<!doctype html><html><head><style>html,body{margin:0;width:100%%;height:100%%;background:%s}</style></head><body>
@@ -130,18 +140,25 @@ document.querySelectorAll('[data-supervisor-currency]').forEach((b) => {
 });
 const block = %s;
 const delay = %d;
+const liveShell = %s;
 function reveal() {
   if (block) return;
   const frame = document.getElementById('game');
   const src = new URL(location.href);
-  src.searchParams.set('frame', '1');
-  src.searchParams.set('marker', 'spribelaunch.com/aviator');
+  if (liveShell) {
+    frame.style.width = '640px';
+    frame.style.height = '480px';
+    src.searchParams.set('frame', 'live');
+  } else {
+    src.searchParams.set('frame', '1');
+    src.searchParams.set('marker', 'spribelaunch.com/aviator');
+  }
   setTimeout(() => { frame.src = src.toString(); }, delay);
 }
 document.querySelector('[data-supervisor-play]').onclick = () => { ping('play', ''); reveal(); };
 document.querySelector('[data-supervisor-demo]').onclick = () => { ping('demo', ''); reveal(); };
 </script>
-</body></html>`, color, body, currencyDelay, block, delay)
+</body></html>`, color, body, currencyDelay, block, delay, liveShell)
 }
 
 func (s *standIn) hitsCopy() []standInHit {
