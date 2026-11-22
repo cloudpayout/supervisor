@@ -28,8 +28,9 @@ type standIn struct {
 	url        string
 	name       string
 	value      string
-	blockReady bool
-	slowEntry  bool
+	blockReady      bool
+	slowEntry       bool
+	delayCurrencyMS int
 	mu         sync.Mutex
 	hits       []standInHit
 	paths      []string
@@ -91,10 +92,14 @@ func (s *standIn) serve(w http.ResponseWriter, r *http.Request) {
 	if s.slowEntry {
 		delay = 2500
 	}
+	currencyDelay := 0
+	if s.delayCurrencyMS > 0 {
+		currencyDelay = s.delayCurrencyMS
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, `<!doctype html><html><head><style>html,body{margin:0;width:100%%;height:100%%;background:%s}</style></head><body>
 %s
-<button data-supervisor-currency-open type="button">currency</button>
+<div id="currency-slot"></div>
 <div id="currencies" hidden>
 <button data-supervisor-currency type="button">USD</button>
 <button data-supervisor-currency type="button">MXN</button>
@@ -106,7 +111,20 @@ func (s *standIn) serve(w http.ResponseWriter, r *http.Request) {
 function ping(kind, value) {
   fetch('/supervisor-event?kind=' + encodeURIComponent(kind) + '&value=' + encodeURIComponent(value || ''));
 }
-document.querySelector('[data-supervisor-currency-open]').onclick = () => { document.getElementById('currencies').hidden = false; };
+function mountCurrencyOpen() {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.setAttribute('data-supervisor-currency-open', '');
+  btn.textContent = 'currency';
+  btn.onclick = () => { document.getElementById('currencies').hidden = false; };
+  document.getElementById('currency-slot').appendChild(btn);
+}
+const currencyDelay = %d;
+if (currencyDelay > 0) {
+  setTimeout(mountCurrencyOpen, currencyDelay);
+} else {
+  mountCurrencyOpen();
+}
 document.querySelectorAll('[data-supervisor-currency]').forEach((b) => {
   b.addEventListener('click', () => ping('currency', (b.textContent || '').trim()));
 });
@@ -123,7 +141,7 @@ function reveal() {
 document.querySelector('[data-supervisor-play]').onclick = () => { ping('play', ''); reveal(); };
 document.querySelector('[data-supervisor-demo]').onclick = () => { ping('demo', ''); reveal(); };
 </script>
-</body></html>`, color, body, block, delay)
+</body></html>`, color, body, currencyDelay, block, delay)
 }
 
 func (s *standIn) hitsCopy() []standInHit {
