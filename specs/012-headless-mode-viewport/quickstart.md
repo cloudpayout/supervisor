@@ -35,7 +35,16 @@ Runnable checks after implementation. See [cli contract](./contracts/cli.md), [w
 
 **Spec refs**: User Story 3.
 
-## Scenario 4 — Two headless instances (isolation)
+## Scenario 4 — Live Aviator headless (operator)
+
+1. `./supervisor start <session.json> --headless` with a valid onewin session.
+2. `./supervisor screenshot <id>` after play activation.
+3. **Expect**: game surface loads (not Spribe **Retry limit of app config exceeded!**). Worker log ends with `entry ready`, not `ERROR game_config`.
+4. If `game_config` persists, retry on a current Chrome build or verify headed on the same session file.
+
+**Note**: Headless uses `headless=new` and a software WebGL path (see `007` aviator-entry contract).
+
+## Scenario 5 — Two headless instances (isolation)
 
 1. Start two `--headless` instances (`id1`, `id2`).
 2. Screenshot each; both PNGs 1280×720.

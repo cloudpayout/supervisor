@@ -30,8 +30,9 @@ type standIn struct {
 	value           string
 	blockReady      bool
 	slowEntry       bool
-	delayCurrencyMS int
-	liveReadyShell  bool
+	delayCurrencyMS  int
+	liveReadyShell   bool
+	spribeConfigError bool
 	mu         sync.Mutex
 	hits       []standInHit
 	paths      []string
@@ -79,6 +80,11 @@ func (s *standIn) serve(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `<!doctype html><html><body><app-game><header class="header__game-logo">aviator</header></app-game></body></html>`)
 		return
 	}
+	if r.URL.Query().Get("frame") == "configerr" {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprint(w, `<!doctype html><html><body class="spribe-aviator"><div>Retry limit of app config exceeded!</div></body></html>`)
+		return
+	}
 	header := r.Header.Get("Cookie")
 	shown := cookiePresent(header, s.name, s.value)
 	s.mu.Lock()
@@ -105,6 +111,10 @@ func (s *standIn) serve(w http.ResponseWriter, r *http.Request) {
 	liveShell := "false"
 	if s.liveReadyShell {
 		liveShell = "true"
+	}
+	configErr := "false"
+	if s.spribeConfigError {
+		configErr = "true"
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, `<!doctype html><html><head><style>html,body{margin:0;width:100%%;height:100%%;background:%s}</style></head><body>
@@ -141,13 +151,17 @@ document.querySelectorAll('[data-supervisor-currency]').forEach((b) => {
 const block = %s;
 const delay = %d;
 const liveShell = %s;
+const configErr = %s;
 function reveal() {
   if (block) return;
   const frame = document.getElementById('game');
   const src = new URL(location.href);
-  if (liveShell) {
-    frame.style.width = '640px';
-    frame.style.height = '480px';
+  frame.style.width = '640px';
+  frame.style.height = '480px';
+  if (configErr) {
+    src.searchParams.set('frame', 'configerr');
+    src.searchParams.set('marker', 'spribelaunch.com/aviator');
+  } else if (liveShell) {
     src.searchParams.set('frame', 'live');
   } else {
     src.searchParams.set('frame', '1');
@@ -158,7 +172,7 @@ function reveal() {
 document.querySelector('[data-supervisor-play]').onclick = () => { ping('play', ''); reveal(); };
 document.querySelector('[data-supervisor-demo]').onclick = () => { ping('demo', ''); reveal(); };
 </script>
-</body></html>`, color, body, currencyDelay, block, delay, liveShell)
+</body></html>`, color, body, currencyDelay, block, delay, liveShell, configErr)
 }
 
 func (s *standIn) hitsCopy() []standInHit {

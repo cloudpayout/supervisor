@@ -48,10 +48,12 @@ func EnterAviator(ctx context.Context, prefs session.PlayPreferences) error {
 	_, _ = chromedp.Run(ctx, chromedp.Sleep(750*time.Millisecond))
 	readyDeadline := time.Now().Add(aviatorEntryBudget)
 	if err := waitReady(ctx, readyDeadline); err != nil {
-		if shell, shellErr := aviatorGameShellVisible(ctx); shellErr == nil && shell {
-			return nil
-		}
 		return err
+	}
+	if failed, err := aviatorGameConfigFailedAny(ctx); err != nil {
+		return err
+	} else if failed {
+		return fmt.Errorf("game_config")
 	}
 	return nil
 }
@@ -243,7 +245,34 @@ func jsStringArray(values []string) string {
 	return out + "]"
 }
 
+const aviatorConfigErrorScript = `(() => {
+	const re = /retry limit of (app|client) config exceeded/i;
+	function checkDoc(doc) {
+		if (!doc || !doc.body) return false;
+		return re.test(doc.body.innerText || '');
+	}
+	if (checkDoc(document)) return true;
+	for (const f of document.querySelectorAll('iframe')) {
+		try {
+			if (checkDoc(f.contentDocument)) return true;
+		} catch (_) {}
+	}
+	return false;
+})()`
+
 const aviatorReadyEvaluate = `(() => {
+	function configError(doc) {
+		if (!doc || !doc.body) return false;
+		return /retry limit of (app|client) config exceeded/i.test(doc.body.innerText || '');
+	}
+	function hasConfigError() {
+		if (configError(document)) return true;
+		for (const f of document.querySelectorAll('iframe')) {
+			try { if (configError(f.contentDocument)) return true; } catch (_) {}
+		}
+		return false;
+	}
+	if (hasConfigError()) return false;
 	function visible(el) {
 		if (!el) return false;
 		const r = el.getBoundingClientRect();
@@ -308,27 +337,10 @@ const aviatorReadyEvaluate = `(() => {
 			if (innerReady(best.contentDocument)) return true;
 		} catch (_) {}
 	}
-	function crossOriginGameShell(frame) {
-		const src = decodeURIComponent(frame.getAttribute('src') || '').toLowerCase();
-		const title = (frame.getAttribute('title') || '').toLowerCase();
-		if (!srcLooksLikeGame(src) && title !== 'gameiframe') return false;
-		const r = frame.getBoundingClientRect();
-		return r.width * r.height >= 15000;
-	}
-	for (const f of ranked) {
-		if (crossOriginGameShell(f)) return true;
-	}
-	if (best && area >= 15000) {
-		const src = decodeURIComponent(best.getAttribute('src') || '').toLowerCase();
-		if (srcLooksLikeGame(src)) return true;
-	}
 	const onGameSurface = !document.querySelector('[data-testid="game-play-card-play-button"]') &&
 		!document.querySelector('[data-testid="game-play-card-demo-button"]');
 	if (onGameSurface) {
-		for (const f of frames) {
-			const r = f.getBoundingClientRect();
-			if (r.width >= 120 && r.height >= 80) return true;
-		}
+		if (hasConfigError()) return false;
 		const loader = document.querySelector('.main-loading, [class*="spribe"], [class*="aviator"]');
 		if (loader && visible(loader)) return true;
 	}
@@ -369,24 +381,91 @@ func aviatorGameShellVisible(ctx context.Context) (bool, error) {
 	return chromedp.Run(ctx, chromedp.Evaluate[bool](aviatorShellVisibleScript))
 }
 
+func aviatorGameConfigFailed(ctx context.Context) (bool, error) {
+	return chromedp.Run(ctx, chromedp.Evaluate[bool](aviatorConfigErrorScript))
+}
+
+func aviatorGameConfigFailedInTargets(ctx context.Context) (bool, error) {
+	infos, err := chromedp.Targets(ctx)
+	if err != nil {
+		return false, err
+	}
+	for _, info := range infos {
+		if !aviatorTargetURL(info.URL) {
+			continue
+		}
+		frameCtx, cancel := chromedp.NewContext(ctx, chromedp.WithTargetID(info.TargetID))
+		probe, probeCancel := context.WithTimeout(frameCtx, 500*time.Millisecond)
+		failed, err := chromedp.Run(probe, chromedp.Evaluate[bool](aviatorConfigErrorScript))
+		probeCancel()
+		cancel()
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+				continue
+			}
+			return false, err
+		}
+		if failed {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func aviatorGameConfigFailedAny(ctx context.Context) (bool, error) {
+	failed, err := aviatorGameConfigFailed(ctx)
+	if err != nil || failed {
+		return failed, err
+	}
+	return aviatorGameConfigFailedInTargets(ctx)
+}
+
+func rejectIfGameConfigFailed(ctx context.Context) error {
+	failed, err := aviatorGameConfigFailedAny(ctx)
+	if err != nil {
+		return err
+	}
+	if failed {
+		return fmt.Errorf("game_config")
+	}
+	return nil
+}
+
 func waitReady(ctx context.Context, deadline time.Time) error {
 	var lastTargetProbe time.Time
 	for time.Now().Before(deadline) {
 		if ctx.Err() != nil {
-			if shell, shellErr := aviatorGameShellVisible(ctx); shellErr == nil && shell {
-				return nil
-			}
 			return fmt.Errorf("timeout")
 		}
+		if failed, err := aviatorGameConfigFailedAny(ctx); err != nil {
+			return err
+		} else if failed {
+			return fmt.Errorf("game_config")
+		}
 		if ready, err := chromedp.Run(ctx, chromedp.Evaluate[bool](aviatorReadyEvaluate)); err == nil && ready {
+			if err := rejectIfGameConfigFailed(ctx); err != nil {
+				return err
+			}
 			return nil
 		}
 		if ready, err := gameReadyInChildFrames(ctx); err == nil && ready {
+			if err := rejectIfGameConfigFailed(ctx); err != nil {
+				return err
+			}
 			return nil
 		}
 		if time.Since(lastTargetProbe) >= 2*time.Second {
 			lastTargetProbe = time.Now()
-			if ready, err := gameReadyInAviatorTargets(ctx); err == nil && ready {
+			ready, err := gameReadyInAviatorTargets(ctx)
+			if err != nil {
+				if err.Error() == "game_config" {
+					return err
+				}
+			}
+			if err == nil && ready {
+				if err := rejectIfGameConfigFailed(ctx); err != nil {
+					return err
+				}
 				return nil
 			}
 		}
@@ -451,6 +530,16 @@ func gameReadyInAviatorTargets(ctx context.Context) (bool, error) {
 			continue
 		}
 		frameCtx, cancel := chromedp.NewContext(ctx, chromedp.WithTargetID(info.TargetID))
+		if failed, err := probeFrameTargetConfigError(frameCtx); err != nil {
+			cancel()
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+				continue
+			}
+			return false, err
+		} else if failed {
+			cancel()
+			return false, fmt.Errorf("game_config")
+		}
 		ready, err := probeFrameTargetReady(frameCtx)
 		if err != nil {
 			cancel()
@@ -466,6 +555,12 @@ func gameReadyInAviatorTargets(ctx context.Context) (bool, error) {
 		cancel()
 	}
 	return false, nil
+}
+
+func probeFrameTargetConfigError(frameCtx context.Context) (bool, error) {
+	probe, cancel := context.WithTimeout(frameCtx, 500*time.Millisecond)
+	defer cancel()
+	return chromedp.Run(probe, chromedp.Evaluate[bool](aviatorConfigErrorScript))
 }
 
 func probeFrameTargetReady(frameCtx context.Context) (bool, error) {
