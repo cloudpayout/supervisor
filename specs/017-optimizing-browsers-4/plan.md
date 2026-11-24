@@ -107,13 +107,14 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Base headless + enable-webgl + SwiftShader] --> B{lightweight?}
-    B -->|no| Z[done]
-    B -->|yes| C[013 headlessLightweightOptions]
-    C --> D[014 phase-2 incl js-flags 320]
-    D --> E[015 phase-3 memory-pressure-off]
-    E --> F[017 phase-4 adopt slice only]
-    B2[016 experimental] -. removed .-> F
+    A[Base headless] --> B{lightweight?}
+    B -->|no| W[enable-webgl + SwiftShader]
+    W --> Z[done]
+    B -->|yes| C[013 incl disable-breakpad]
+    C --> D[014 phase-2 no 320 js if 016]
+    D --> E[015 phase-3]
+    E --> F[017 phase-4]
+    F --> G[016 experimental + single-process + no-sandbox + no-zygote]
 ```
 
 ### Implementation phases
@@ -132,7 +133,7 @@ flowchart TD
 |------|------------|-------------------------------------|
 | Bundled headless shell | Spec FR-005/006; RAM footprint | Full Chrome on headless missed operator goal |
 | Ignore `CHROME_PATH` on headless | Spec FR-007 | Operators already set CHROME_PATH for headed; accidental full Chrome on headless breaks experiment |
-| Revert 016 before phase-4 | Spec FR-011; 015 “successful” | Layering on 016 GPU-off baseline confounds RAM and games |
+| 016 + process flags after phase-4 | Operator amendment 2026-11-24 | Original FR-011 revert superseded on this branch; see [contracts/shipped-lightweight-argv-amendment.md](./contracts/shipped-lightweight-argv-amendment.md) |
 | Fourth allocator slice | Traceable rollback vs editing 015 | Single blob hides what changed |
 
 ## Artifacts generated (Phase 0–1)
@@ -146,3 +147,4 @@ flowchart TD
 | Headless shell | [contracts/headless-shell-binary.md](./contracts/headless-shell-binary.md) |
 | Ephemeral profile | [contracts/ephemeral-profile.md](./contracts/ephemeral-profile.md) |
 | Flag matrix | [contracts/operator-flag-matrix.md](./contracts/operator-flag-matrix.md) |
+| Shipped argv amendment | [contracts/shipped-lightweight-argv-amendment.md](./contracts/shipped-lightweight-argv-amendment.md) |

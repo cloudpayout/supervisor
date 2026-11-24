@@ -52,7 +52,7 @@ Record in [research.md](./research.md) Baseline Record (017).
 go test ./internal/browser/... -run 'Phase4|Lightweight|HeadlessShell' -count=1
 ```
 
-Expect **015** profile + phase-4 adopts; **no** 016 experiment flags; **no** `disable-background-networking=true`.
+Expect **013–015** + **017 phase-4** + **016 experimental** (incl. `single-process`, `no-sandbox`, `no-zygote`, `disable-breakpad`); **no** `disable-background-networking=true`. See [contracts/shipped-lightweight-argv-amendment.md](./contracts/shipped-lightweight-argv-amendment.md).
 
 ## 4. Ephemeral profile (SC-006, SC-007)
 

@@ -2,7 +2,7 @@
 
 **Package**: `internal/browser`  
 **Amends**: [015 browser-allocator-phase3.md](../../015-optimizing-browsers-3/contracts/browser-allocator-phase3.md)  
-**Supersedes**: [016 browser-allocator-experimental.md](../../016-optimizing-browsers-experimental/contracts/browser-allocator-experimental.md) on default headless — **016 slice removed**.
+**Coexists with**: [016 browser-allocator-experimental.md](../../016-optimizing-browsers-experimental/contracts/browser-allocator-experimental.md) — 016 slice **re-shipped after** phase-4 per [shipped-lightweight-argv-amendment.md](./shipped-lightweight-argv-amendment.md).
 
 ## When applied
 
@@ -12,13 +12,12 @@
 | true | false | **No** |
 | false | * | **No** |
 
-## Prerequisite profile (015 baseline)
+## Prerequisite profile (013–015)
 
 Before phase-4 append:
 
-- Headless base includes `enable-webgl` + `use-angle=swiftshader` when `lightweight`.
-- 013, 014 (incl. `js-flags` 320), 015 `memory-pressure-off` present.
-- **No** 016 experimental GPU/WebGL/128-js flags.
+- 013 (incl. explicit `disable-breakpad`), 014 cache slice, 015 `memory-pressure-off` present.
+- On **amended** shipped profile: headless lightweight **omits** WebGL enable; 014 omits **320** `js-flags` (016 128 bundle applies later).
 
 ## Phase-4 flags (when adopted)
 
@@ -27,8 +26,10 @@ Emitted from `headlessPhase4LightweightOptions()` per research R2 final matrix (
 ## Must not appear on default headless lightweight
 
 - `disable-background-networking=true`
-- 016 experiment set (`disable-gpu`, `disable-webgl`, `disable-3d-apis`, experimental 128 `js-flags`, etc.) unless matrix amended with stand-in proof
-- **Reject** defaults: `no-sandbox`, `single-process`, `no-zygote` unless research records smoke + stand-in pass on headless shell
+
+## Shipped after phase-4 (operator amendment)
+
+See [shipped-lightweight-argv-amendment.md](./shipped-lightweight-argv-amendment.md): 016 experimental + `single-process` + `no-zygote` + `no-sandbox`.
 
 ## Exec path
 
@@ -36,5 +37,5 @@ Emitted from `headlessPhase4LightweightOptions()` per research R2 final matrix (
 
 ## Verification
 
-- Unit tests: phase-4 flags present/absent per matrix; 016 flags absent; WebGL enable present on 015 path.
+- Unit tests: phase-4 flags present; 016 + process flags present on default lightweight per amendment; WebGL enable only on `--no-lightweight`.
 - Forbidden flags test: no `disable-background-networking=true`.

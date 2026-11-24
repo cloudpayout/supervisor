@@ -244,7 +244,7 @@ description: "Task list for headless shell, phase-4 flags, ephemeral profiles (0
 
 - Do **not** use `CHROME_PATH` for headless full Chrome (**FR-007**).
 - Do **not** ship `disable-background-networking=true` on headless (**FR-003**).
-- Remove **016** experimental slice before declaring US1 complete (**FR-011**).
+- **016** experimental slice re-shipped on lightweight per operator amendment 2026-11-24 (**FR-011** superseded on this branch).
 - Stand-ins (**T022**) gate default adopts per constitution **V**.
 - Run `scripts/fetch-chrome-headless-shell.sh` before headless tests (**T003**, **T033**).
 
@@ -254,3 +254,7 @@ description: "Task list for headless shell, phase-4 flags, ephemeral profiles (0
 - [x] T035 Measure `start --headless --no-lightweight` idle median and record **median_017_no_lightweight_control_mib** (`performance_flags=none`) in `specs/017-optimizing-browsers-4/research.md` Baseline Record (017) per **FR-008**, **T025** (`partial`)
 - [x] T036 Add `TestStartHeadlessFailsWithoutBundledShell` in `tests/integration/start_launch_failure_test.go` (temporarily rename `bin/chrome-headless-shell`); assert headless start fails with no instance ID per [contracts/headless-shell-binary.md](./contracts/headless-shell-binary.md), **T018** (`partial`)
 - [x] T037 Extend `TestNoLightweightOmitsExperimentalAndLightweightTiers` in `internal/browser/chromedp_test.go` to include phase-4 keys (`disable-gpu-compositing`, etc.) and rename comment from 016 to 017 per **FR-002** (`partial`)
+
+## Phase 10: Operator argv amendment (docs)
+
+- [x] T038 Document 016 re-ship plus `disable-breakpad`, `single-process`, `no-sandbox`, `no-zygote` in [contracts/shipped-lightweight-argv-amendment.md](./contracts/shipped-lightweight-argv-amendment.md), [research.md](./research.md) R3b, [operator-flag-matrix.md](./contracts/operator-flag-matrix.md), and [spec.md](./spec.md) amendments section (post-PR #16 operator request).

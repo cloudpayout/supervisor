@@ -172,9 +172,13 @@ If idle MEMORY does not drop, the operator can read what was tried, what shipped
 - **SC-006**: **100%** of integration scenarios that start and then `stop` an instance leave **no** profile directory for that instance ID under the supervisor profiles layout after cleanup completes.
 - **SC-007**: In a documented test of **N** consecutive start/stop cycles (plan defines **N**, minimum 5) with no instances left `running`, **zero** leftover profile directories from those instance IDs remain on disk.
 
+## Operator amendments (shipped 2026-11-24)
+
+After initial **017** implement, the operator re-shipped the **016** experimental slice on default headless lightweight, plus explicit **`disable-breakpad`**, **`single-process`**, **`no-zygote`**, and **`no-sandbox`**, while keeping **`disable-background-networking=false`**. This amends the original **FR-011** revert for branch **017-optimizing-browsers-4**. Canonical argv: [contracts/shipped-lightweight-argv-amendment.md](./contracts/shipped-lightweight-argv-amendment.md).
+
 ## Assumptions
 
-- Spec **015** is the successful tuning baseline; spec **016** experimental default may be reverted as part of phase 4 per **FR-011**.
+- Spec **015** remains the RAM comparison reference; default shipped argv may combine **015** tiers, **017** phase-4, and **016** experiment per operator amendment above.
 - Operators develop on Linux or WSL2; bundle step targets those platforms first (other platforms may document manual install).
 - **chrome-headless-shell** is distributed under Google Chrome terms; the project documents license and download source without committing proprietary blobs unless policy allows (plan chooses vendor dir vs script-only).
 - Several operator proposals are already on **013–015** profiles; phase 4 treats duplicates as **already present**.

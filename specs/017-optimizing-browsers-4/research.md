@@ -15,7 +15,8 @@
 
 | Flag / proposal | Verdict | Notes |
 |-----------------|---------|-------|
-| `disable-crash-reporter`, `disable-breakpad` | **Skip (013)** | Already in lightweight tier |
+| `disable-crash-reporter` | **Skip (013)** | Already in lightweight tier |
+| `disable-breakpad` | **Adopt (amendment)** | Explicit in 013 bundle |
 | `media-cache-size=1` | **Skip (013/014)** | Duplicate in operator file |
 | `disable-application-cache` | **Skip (013)** | Already present |
 | `renderer-process-limit=1`, `process-per-site` | **Skip (013)** | Already present |
@@ -34,11 +35,19 @@
 
 **Alternatives**: Ship full `chrome-performance-flags.txt` verbatim (rejected: includes forbidden `disable-background-networking` and high-risk process flags).
 
-## R3: Revert spec 016 experimental (FR-011)
+## R3: Revert spec 016 experimental (FR-011) — original 017 plan
 
-**Decision**: Delete use of `headlessExperimentalLightweightOptions()` on default headless lightweight. Restore headless base **with** `enable-webgl` + `use-angle=swiftshader` when `lightweight`. Restore phase-2 **`js-flags=--max-old-space-size=320`** (single bundle, no 128 experiment).
+**Decision (initial implement)**: Delete use of `headlessExperimentalLightweightOptions()` on default headless lightweight. Restore headless base **with** `enable-webgl` + `use-angle=swiftshader` when `lightweight`. Restore phase-2 **`js-flags=--max-old-space-size=320`** (single bundle, no 128 experiment).
 
 **Rationale**: Operator declared **015** successful; **016** raised idle RAM and disabled WebGL on default path.
+
+## R3b: Operator amendment — 016 + process flags on lightweight (2026-11-24)
+
+**Decision**: Re-append **`headlessExperimentalLightweightOptions()`** after phase-4 on `headless && lightweight`, including **`single-process`**, **`no-zygote`**, **`no-sandbox`**, and 128 **`js-flags`**; omit **`enable-webgl`** / **`use-angle`** on lightweight; omit phase-2 **320** `js-flags` when experimental is active. Add explicit **`disable-breakpad`** to 013 bundle. **`disable-background-networking=true`** remains **reject** (unset block keeps `=false`).
+
+**Rationale**: Operator requested full `chrome-performance-flags.txt` coverage except background networking; supersedes R3 shipped argv on branch **017-optimizing-browsers-4** / PR #16.
+
+**Contract**: [contracts/shipped-lightweight-argv-amendment.md](./contracts/shipped-lightweight-argv-amendment.md)
 
 ## R4: chrome-headless-shell provisioning (FR-005, FR-006)
 
@@ -94,4 +103,5 @@
 | ram_improvement_pct | about **46%** lower than 015 (1126.2 → 604.6); meets the 10% bar |
 | standins_pass | yes (`go test ./tests/integration -run 'OneWin|Aviator'` passed 2026-11-24 on chrome-headless-shell 157) |
 | phase4_adopted_flags | disable-gpu-compositing, disable-gpu-rasterization, disable-accelerated-2d-canvas, disable-accelerated-video-decode, disable-component-update, disable-features += OnDeviceModel,PaintHolding (AudioServiceOutOfProcess already in 014). FR-014: those plus existing 013/014 cache limits. |
+| operator_amendment_2026_11_24 | 016 slice re-shipped; `disable-breakpad`; `single-process`, `no-zygote`, `no-sandbox`; 128 js-flags; no WebGL on lightweight; see R3b and shipped-lightweight-argv-amendment.md |
 | sc006_sc007_pass | yes (`TestProfileRemovedAfterStop`, `TestProfileUniquePerInstance`, `TestProfileTenCycles` passed 2026-11-24) |
