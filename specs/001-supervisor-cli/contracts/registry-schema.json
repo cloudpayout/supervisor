@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/cloudpayout/supervisor/schemas/instances-registry.v1.json",
   "title": "SupervisorInstanceRegistry",
+  "description": "Historical schema v1. Feature 013 may write schema_version 2 with memory_limit_bytes, memory_threshold_percent, and lightweight; see specs/013-optimizing-browsers/contracts/registry-schema.json. Supervisor memory figures are mebibytes (MiB), not decimal megabytes.",
   "type": "object",
   "required": ["schema_version", "instances"],
   "additionalProperties": false,

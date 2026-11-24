@@ -55,12 +55,13 @@ func TestOneWinFailedStartRemovesProfile(t *testing.T) {
 	cmd := exec.Command(bin, "start", file, "--headless")
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
-	if err == nil {
-		id := strings.TrimSpace(string(out))
-		t.Cleanup(func() { stopID(t, bin, env, id) })
-	}
 	if strings.Contains(string(out), "unused") {
 		t.Fatalf("error includes the cookie value: %s", out)
+	}
+	if err == nil {
+		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+		id := lines[len(lines)-1]
+		stopID(t, bin, env, id)
 	}
 	deadline := time.Now().Add(20 * time.Second)
 	for {

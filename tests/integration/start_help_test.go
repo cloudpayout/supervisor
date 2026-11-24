@@ -28,6 +28,11 @@ func TestStartHelp(t *testing.T) {
 		if !strings.Contains(text, "path") || !strings.Contains(text, "blank") || !strings.Contains(text, "--headless") {
 			t.Fatalf("help missing expected text: %s", text)
 		}
+		for _, need := range []string{"--no-lightweight", "--memory-limit", "--threshold", "MiB"} {
+			if !strings.Contains(text, need) {
+				t.Fatalf("help missing %s: %s", need, text)
+			}
+		}
 		if strings.Contains(text, "--headless") && (!strings.Contains(text, "1280") || !strings.Contains(text, "720")) {
 			t.Fatalf("help missing headless viewport dimensions: %s", text)
 		}
@@ -51,6 +56,19 @@ func TestStartHelp(t *testing.T) {
 		doc := readDoc(t, regPath)
 		if len(doc.Instances) != 0 {
 			t.Fatalf("-h left instances: %+v", doc.Instances)
+		}
+	}
+
+	status := exec.Command(bin, "status", "--help")
+	status.Env = env
+	sout, err := status.CombinedOutput()
+	if err != nil {
+		t.Fatalf("status --help: %v %s", err, sout)
+	}
+	stext := string(sout)
+	for _, need := range []string{"NOTE", "threshold exceeded", "MiB"} {
+		if !strings.Contains(stext, need) {
+			t.Fatalf("status help missing %s: %s", need, stext)
 		}
 	}
 }

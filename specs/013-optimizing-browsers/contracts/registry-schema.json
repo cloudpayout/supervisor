@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Supervisor registry document (schema v2, 013 memory policy)",
+  "type": "object",
+  "required": ["schema_version", "instances"],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2
+    },
+    "instances": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/instance" }
+    }
+  },
+  "$defs": {
+    "instance": {
+      "type": "object",
+      "required": ["id", "state", "created_at", "profile_dir"],
+      "properties": {
+        "id": { "type": "string" },
+        "state": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "profile_dir": { "type": "string" },
+        "owner_pid": { "type": "integer" },
+        "browser_pid": { "type": "integer" },
+        "headless": { "type": "boolean" },
+        "casino": { "type": "string" },
+        "entry": { "type": "string" },
+        "memory_limit_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "013: max memory from --memory-limit (bytes, 1024-based parsing)"
+        },
+        "memory_threshold_percent": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "013: NOTE threshold percent of memory_limit_bytes"
+        },
+        "lightweight": {
+          "type": "boolean",
+          "description": "013: when true, apply headed-safe (headed) or full lightweight bundle (headless); when false, --no-lightweight — no 013 lightweight extras"
+        }
+      }
+    }
+  }
+}

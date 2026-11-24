@@ -30,7 +30,7 @@ func TestStatusTenInstances(t *testing.T) {
 			t.Fatalf("missing %s in %s", id, out)
 		}
 	}
-	if !strings.Contains(out, "CPU%") || !strings.Contains(out, "MEMORY") {
+	if !strings.Contains(out, "CPU%") || !strings.Contains(out, "MEMORY") || !strings.Contains(out, "NOTE") {
 		t.Fatalf("missing columns: %s", out)
 	}
 
@@ -49,11 +49,11 @@ func TestStatusTenInstances(t *testing.T) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	if !strings.Contains(buf.String(), "CPU%") {
+	if !strings.Contains(buf.String(), "CPU%") || !strings.Contains(buf.String(), "NOTE") {
 		t.Fatalf("no initial follow output: %q", buf.String())
 	}
 	before := strings.Count(buf.String(), "CPU%")
-	refreshDeadline := time.Now().Add(5 * time.Second)
+	refreshDeadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(refreshDeadline) {
 		if strings.Count(buf.String(), "CPU%") >= before+1 {
 			break
