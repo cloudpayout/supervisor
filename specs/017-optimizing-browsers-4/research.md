@@ -21,9 +21,9 @@
 | `disable-application-cache` | **Skip (013)** | Already present |
 | `renderer-process-limit=1`, `process-per-site` | **Skip (013)** | Already present |
 | `disable-background-networking` | **Reject** | FR-003; bug **-4** |
-| `no-sandbox` | **Reject (default)** | FR-004; security; spec default |
-| `single-process` | **Reject (default)** | 016 segfault on Chrome 157 full binary; retry only on headless-shell smoke |
-| `no-zygote` | **Reject (default)** | Pairs with single-process risk; smoke before reconsider |
+| `no-sandbox` | **Adopt (amendment)** | Shipped with 016 slice; see R3b |
+| `single-process` | **Adopt (amendment)** | Shipped on headless shell per operator request |
+| `no-zygote` | **Adopt (amendment)** | Pairs with single-process |
 | `disable-gpu-compositing` | **Adopt candidate** | Does not remove `enable-webgl`; GPU stack partial disable |
 | `disable-gpu-rasterization` | **Adopt candidate** | Same |
 | `disable-accelerated-2d-canvas` | **Adopt candidate** | Canvas game risk — stand-in gate |
@@ -31,7 +31,7 @@
 | `disable-component-update` | **Adopt candidate** | Reduces background work |
 | `disable-features` += `OnDeviceModel`, `PaintHolding`, `AudioServiceOutOfProcess` | **Adopt candidate** | Merge into `casinoDisableFeatures` / phase-4 slice without dropping IsolateOrigins merge |
 
-**Rationale**: **015** kept WebGL + SwiftShader; phase-4 targets compositor/raster/video paths, not wholesale `disable-webgl`. Forbidden networking and process hacks stay off unless smoke + stand-ins pass.
+**Rationale (initial)**: **015** kept WebGL + SwiftShader; phase-4 targets compositor/raster/video paths. **Final (R3b)**: 016 wholesale GPU/WebGL off and process-model flags adopted per operator amendment; **`disable-background-networking=true`** still rejected.
 
 **Alternatives**: Ship full `chrome-performance-flags.txt` verbatim (rejected: includes forbidden `disable-background-networking` and high-risk process flags).
 
