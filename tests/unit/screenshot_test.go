@@ -21,8 +21,10 @@ func TestServeCapturePNG(t *testing.T) {
 	png := []byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3}
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- worker.ServeCapture(ctx, sock, func(context.Context) ([]byte, error) {
-			return png, nil
+		errCh <- worker.ServeCapture(ctx, sock, worker.CaptureHandlers{
+			Capture: func(context.Context) ([]byte, error) {
+				return png, nil
+			},
 		})
 	}()
 
@@ -63,10 +65,12 @@ func TestServeCaptureRejectsOversizedPNG(t *testing.T) {
 	defer cancel()
 
 	go func() {
-		_ = worker.ServeCapture(ctx, sock, func(context.Context) ([]byte, error) {
-			buf := make([]byte, 32<<20+1)
-			copy(buf, []byte{0x89, 'P', 'N', 'G'})
-			return buf, nil
+		_ = worker.ServeCapture(ctx, sock, worker.CaptureHandlers{
+			Capture: func(context.Context) ([]byte, error) {
+				buf := make([]byte, 32<<20+1)
+				copy(buf, []byte{0x89, 'P', 'N', 'G'})
+				return buf, nil
+			},
 		})
 	}()
 

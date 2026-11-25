@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"os/signal"
@@ -136,13 +137,21 @@ func Run(reg registry.Store, id, sessionFile, logPath string) error {
 
 	listenCtx, listenCancel := context.WithCancel(context.Background())
 	captureDone := make(chan struct{})
+	var watchGate WatchGate
 	go func() {
 		defer close(captureDone)
-		_ = ServeCapture(listenCtx, socketPath, func(context.Context) ([]byte, error) {
-			// Child of taskCtx: this timeout does not close the browser (FR-005, FR-009).
-			shotCtx, cancel := context.WithTimeout(taskCtx, 10*time.Second)
-			defer cancel()
-			return chromedp.Run(shotCtx, chromedp.CaptureScreenshot())
+		_ = ServeCapture(listenCtx, socketPath, CaptureHandlers{
+			Gate: &watchGate,
+			Capture: func(context.Context) ([]byte, error) {
+				// Child of taskCtx: this timeout does not close the browser (003 FR-005, FR-009).
+				shotCtx, cancel := context.WithTimeout(taskCtx, 10*time.Second)
+				defer cancel()
+				return chromedp.Run(shotCtx, chromedp.CaptureScreenshot())
+			},
+			Watch: func(conn net.Conn, fps int) {
+				// 018 FR-004: loopback MJPEG until CLI disconnect or worker shutdown.
+				RunWatchSession(conn, taskCtx, nil, fps, &watchGate)
+			},
 		})
 	}()
 	if err := waitForSocket(socketPath, captureDone); err != nil {

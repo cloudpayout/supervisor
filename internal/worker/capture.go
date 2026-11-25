@@ -18,11 +18,19 @@ const maxPNG = 32 << 20
 
 var pngMagic = []byte{0x89, 'P', 'N', 'G'}
 
-// ServeCapture listens on a Unix socket and serves one CAPTURE request per
-// connection (FR-005, FR-011). The socket directory is 0700 and the socket is
-// 0600. Captures of one instance are serialized. A payload over 32 MiB is
-// refused. The socket file is removed when ctx is cancelled or the listener stops.
-func ServeCapture(ctx context.Context, socketPath string, capture func(context.Context) ([]byte, error)) error {
+// CaptureHandlers serves CAPTURE and optional WATCH on one unix socket (003, 018).
+type CaptureHandlers struct {
+	Capture func(context.Context) ([]byte, error)
+	Watch   func(conn net.Conn, fps int)
+	Gate    *WatchGate
+}
+
+// ServeCapture listens on a Unix socket and serves CAPTURE and WATCH requests.
+// The socket directory is 0700 and the socket is 0600. Captures of one instance
+// are serialized. A payload over 32 MiB is refused. The socket file is removed
+// when ctx is cancelled or the listener stops.
+func ServeCapture(ctx context.Context, socketPath string, h CaptureHandlers) error {
+	capture := h.Capture
 	if err := os.MkdirAll(dirOf(socketPath), 0o700); err != nil {
 		return err
 	}
@@ -53,18 +61,38 @@ func ServeCapture(ctx context.Context, socketPath string, capture func(context.C
 			}
 			return err
 		}
-		serveCaptureConn(conn, &mu, capture)
+		go serveSocketConn(conn, &mu, capture, h.Watch, h.Gate)
 	}
+}
+
+func serveSocketConn(conn net.Conn, mu *sync.Mutex, capture func(context.Context) ([]byte, error), watch func(net.Conn, int), gate *WatchGate) {
+	br := bufio.NewReader(conn)
+	line, err := br.ReadString('\n')
+	if err != nil {
+		conn.Close()
+		return
+	}
+	trim := strings.TrimRight(line, "\r\n")
+	if trim == "CAPTURE" {
+		serveCaptureConn(conn, mu, capture)
+		return
+	}
+	if fps, ok := ParseWatchFPS(line); ok {
+		if watch == nil {
+			fmt.Fprintf(conn, "ERR watch unavailable\n")
+			conn.Close()
+			return
+		}
+		watch(conn, fps)
+		return
+	}
+	fmt.Fprintf(conn, "ERR bad request\n")
+	conn.Close()
 }
 
 func serveCaptureConn(conn net.Conn, mu *sync.Mutex, capture func(context.Context) ([]byte, error)) {
 	defer conn.Close()
 	_ = conn.SetDeadline(time.Now().Add(12 * time.Second))
-	line, err := bufio.NewReader(conn).ReadString('\n')
-	if err != nil || strings.TrimRight(line, "\r\n") != "CAPTURE" {
-		fmt.Fprintf(conn, "ERR bad request\n")
-		return
-	}
 	mu.Lock()
 	png, err := capture(context.Background())
 	mu.Unlock()

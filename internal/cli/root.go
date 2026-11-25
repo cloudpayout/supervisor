@@ -37,6 +37,7 @@ func isUsageError(err error) bool {
 		strings.Contains(msg, "output path required") ||
 		strings.Contains(msg, "usage:") ||
 		strings.Contains(msg, "invalid --level") ||
+		strings.Contains(msg, "invalid --fps") ||
 		strings.Contains(msg, "requires --yes") ||
 		strings.Contains(msg, "stdin is not a terminal")
 }
@@ -53,6 +54,7 @@ func newRoot() *cobra.Command {
 	root.AddCommand(newStatusCmd())
 	root.AddCommand(newStopCmd())
 	root.AddCommand(newScreenshotCmd())
+	root.AddCommand(newWatchCmd())
 	root.AddCommand(newLogsCmd())
 	root.AddCommand(newWorkerCmd())
 	return root
