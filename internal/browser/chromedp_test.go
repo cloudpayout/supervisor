@@ -2,15 +2,24 @@ package browser_test
 
 import (
 	"context"
+	"os"
 	"os/exec"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/chromedp/chromedp"
 
 	"github.com/cloudpayout/supervisor/internal/browser"
 )
+
+// chromeProbeDisplayMu serializes the dummy DISPLAY used by chromeAllocatorArgs.
+// Headed AllocatorOptions enables chromedp.VisibleWindow, which returns
+// ErrNoDisplay on Linux before building a command when DISPLAY and
+// WAYLAND_DISPLAY are both unset (GitHub Actions). Callers use t.Parallel, so
+// t.Setenv is not available.
+var chromeProbeDisplayMu sync.Mutex
 
 func TestAllocatorOptionsHeadlessWindowSize(t *testing.T) {
 	t.Parallel()
@@ -66,6 +75,20 @@ func TestAllocatorOptionsHeadlessWindowSize(t *testing.T) {
 
 func chromeAllocatorArgs(t *testing.T, opts []chromedp.ExecAllocatorOption) []string {
 	t.Helper()
+
+	chromeProbeDisplayMu.Lock()
+	defer chromeProbeDisplayMu.Unlock()
+	prevDisplay, hadDisplay := os.LookupEnv("DISPLAY")
+	if err := os.Setenv("DISPLAY", ":1"); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if hadDisplay {
+			_ = os.Setenv("DISPLAY", prevDisplay)
+			return
+		}
+		_ = os.Unsetenv("DISPLAY")
+	}()
 
 	var args []string
 	opts = append(opts,
