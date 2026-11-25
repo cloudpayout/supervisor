@@ -12,3 +12,13 @@ Cloudpayout Supervisor is the official CLI program to run automations on popular
 Supervisor monitors automations by running <a href="https://github.com/chromedp/chromedp">chromedp</a> instances and running the necessary code to run these automations.
 
 An `onewin` session start opens Aviator, chooses the game-balance currency, and activates play or demo. The instance stays up once the game is ready.
+
+## Development (spec 017 headless shell)
+
+Default headless runs use **chrome-headless-shell** from the repo, not system Chrome. Before `supervisor start --headless` or headless integration tests:
+
+```bash
+./scripts/fetch-chrome-headless-shell.sh
+```
+
+See [specs/017-optimizing-browsers-4/quickstart.md](specs/017-optimizing-browsers-4/quickstart.md). Headed `start` still uses `CHROME_PATH` or Chrome on `PATH`.

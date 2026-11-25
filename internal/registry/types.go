@@ -2,7 +2,10 @@ package registry
 
 import "time"
 
-const SchemaVersion = 1
+const (
+	SchemaVersion   = 1
+	SchemaVersionV2 = 2
+)
 
 type State string
 
@@ -33,6 +36,33 @@ type Instance struct {
 	// Entry is entering or ready while onewin Aviator entry is in progress or done.
 	// A blank start omits it. Failure removes the row instead of storing a reason.
 	Entry string `json:"entry,omitempty"`
+	// MemoryLimitBytes is the optional --memory-limit in bytes (mebibyte parsing). Minimum 1 when set.
+	MemoryLimitBytes uint64 `json:"memory_limit_bytes,omitempty"`
+	// MemoryThresholdPercent is 1–100 when a memory limit is set.
+	MemoryThresholdPercent int `json:"memory_threshold_percent,omitempty"`
+	// Lightweight is nil on legacy rows (worker treats as enabled). 013 start writes true or false.
+	// Pointer so false is persisted (bool omitempty would drop false).
+	Lightweight *bool `json:"lightweight,omitempty"`
+}
+
+// LightweightEnabled reports whether 013 lightweight extras apply.
+// A missing field (legacy registry) is treated as enabled.
+func (inst Instance) LightweightEnabled() bool {
+	if inst.Lightweight == nil {
+		return true
+	}
+	return *inst.Lightweight
+}
+
+// NoteThresholdExceeded is the fixed status NOTE when RSS is at or above the warning line.
+const NoteThresholdExceeded = "threshold exceeded"
+
+// WarningBytes is floor(limit * percent / 100). Zero when no limit is configured.
+func (inst Instance) WarningBytes() uint64 {
+	if inst.MemoryLimitBytes == 0 || inst.MemoryThresholdPercent <= 0 {
+		return 0
+	}
+	return inst.MemoryLimitBytes * uint64(inst.MemoryThresholdPercent) / 100
 }
 
 // Document is the on-disk registry (schema_version const 1).

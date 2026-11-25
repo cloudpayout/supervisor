@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cloudpayout/supervisor/internal/memlimit"
 	"github.com/cloudpayout/supervisor/internal/metrics"
 	"github.com/cloudpayout/supervisor/internal/registry"
 )
@@ -23,6 +24,10 @@ func newStatusCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		Short: "Print a snapshot of tracked instances and resource usage",
 		Long: `Print instance state and CPU/memory once and exit.
+
+MEMORY is mebibytes (MiB), not decimal megabytes. Without --memory-limit the column is current use only (for example 245.3 MiB). With a limit it is current/limit (for example 245.3 MiB/512.0 MiB). While starting, current use is unavailable (unavailable/512.0 MiB when a limit is set).
+
+NOTE is empty unless aggregated memory is at or above the warning line, then it shows "threshold exceeded". The instance stays running.
 
 Use --follow or -f to refresh the table about every 2 seconds until interrupted.
 Full-screen clearing applies only in follow mode on an interactive terminal.`,
@@ -82,28 +87,58 @@ func renderStatus(store registry.Store, clearScreen bool) error {
 		return nil
 	}
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tSTATE\tENTRY\tCPU%\tMEMORY")
+	fmt.Fprintln(w, "ID\tSTATE\tENTRY\tCPU%\tMEMORY\tNOTE")
 	shown := 0
 	for _, inst := range rows {
 		if inst.State != registry.StateStarting && inst.State != registry.StateRunning {
 			continue
 		}
 		shown++
-		cpu, mem := "unavailable", "unavailable"
+		cpu := "unavailable"
+		var rss uint64
+		ok := false
 		if inst.State == registry.StateRunning {
 			snap := metrics.Aggregate(inst.OwnerPID, inst.BrowserPID)
 			if snap.OK {
 				cpu = fmt.Sprintf("%.1f", snap.CPUPercent)
-				mem = fmt.Sprintf("%.1f MiB", float64(snap.MemoryRSS)/1024/1024)
+				rss = snap.MemoryRSS
+				ok = true
 			}
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", inst.ID, inst.State, inst.Entry, cpu, mem)
+		mem := formatMemory(inst, ok, rss)
+		note := noteFor(inst, ok, rss)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", inst.ID, inst.State, inst.Entry, cpu, mem, note)
 	}
 	if shown == 0 {
 		fmt.Println("No instances are running.")
 		return nil
 	}
 	return w.Flush()
+}
+
+func formatMemory(inst registry.Instance, metricsOK bool, rss uint64) string {
+	if inst.MemoryLimitBytes == 0 {
+		if !metricsOK {
+			return "unavailable"
+		}
+		return memlimit.FormatMiBOneDecimal(rss)
+	}
+	limit := memlimit.FormatMiBOneDecimal(inst.MemoryLimitBytes)
+	if !metricsOK {
+		return "unavailable/" + limit
+	}
+	return memlimit.FormatMiBOneDecimal(rss) + "/" + limit
+}
+
+func noteFor(inst registry.Instance, metricsOK bool, rss uint64) string {
+	if inst.State != registry.StateRunning || !metricsOK || inst.MemoryLimitBytes == 0 {
+		return ""
+	}
+	warn := inst.WarningBytes()
+	if warn > 0 && rss >= warn {
+		return registry.NoteThresholdExceeded
+	}
+	return ""
 }
 
 func isTTY(f *os.File) bool {

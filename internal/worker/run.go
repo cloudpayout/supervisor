@@ -58,7 +58,7 @@ func Run(reg registry.Store, id, sessionFile, logPath string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	allocCtx, allocCancel := chromedp.NewExecAllocator(ctx, browser.AllocatorOptions(inst.ProfileDir, headless)...)
+	allocCtx, allocCancel := chromedp.NewExecAllocator(ctx, browser.AllocatorOptions(inst.ProfileDir, headless, inst.LightweightEnabled())...)
 	taskCtx, taskCancel := chromedp.NewContext(allocCtx)
 
 	var browserPID int

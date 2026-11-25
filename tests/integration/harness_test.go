@@ -58,6 +58,13 @@ func isolatedEnv(t *testing.T) (env []string, stateDir string) {
 		"XDG_STATE_HOME=" + stateDir,
 		"XDG_DATA_HOME=" + dataDir,
 	}
+	// Headed Chrome refuses to start when both display variables are empty.
+	// Forward the developer session so headed registry tests can observe the row.
+	for _, key := range []string{"DISPLAY", "WAYLAND_DISPLAY"} {
+		if v := os.Getenv(key); v != "" {
+			env = append(env, key+"="+v)
+		}
+	}
 	return env, filepath.Join(stateDir, "supervisor", "instances.json")
 }
 
