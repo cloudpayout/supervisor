@@ -201,6 +201,40 @@ func activatePlay(ctx context.Context, demo bool, deadline time.Time) error {
 	}, nil)
 }
 
+const installDemoModeDismissScript = `(() => {
+	if (window.__supervisorDemoDismiss) return 'ok';
+	window.__supervisorDemoDismiss = true;
+	function dismiss() {
+		const modal = document.querySelector('[data-testid="game-demo-mode-modal"]');
+		if (!modal) return;
+		const st = getComputedStyle(modal);
+		if (modal.hidden || st.display === 'none' || st.visibility === 'hidden') return;
+		let btn = modal.querySelector('[data-testid="game-demo-mode-modal-stay-in-demo-button"]');
+		if (!btn) btn = modal.querySelector('[data-testid="modal-header-button-close"]');
+		if (!btn) {
+			const labels = ['Seguir en demo', 'Stay in demo'];
+			btn = [...modal.querySelectorAll('button')].find((b) => labels.some((label) => (b.textContent || '').trim() === label));
+		}
+		if (btn) btn.click();
+	}
+	const obs = new MutationObserver(() => dismiss());
+	obs.observe(document.documentElement, {childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'class', 'style']});
+	setInterval(dismiss, 500);
+	dismiss();
+	return 'ok';
+})()`
+
+// InstallDemoModeDismiss arms a page-local watcher that clicks stay-in-demo whenever
+// the confirmation modal is visible, including appearances after ready. It does not
+// poll from Go and does not change Aviator ready.
+func InstallDemoModeDismiss(ctx context.Context) error {
+	result, err := chromedp.Run(ctx, chromedp.Evaluate[string](installDemoModeDismissScript))
+	if err != nil || result != "ok" {
+		return fmt.Errorf("controls")
+	}
+	return nil
+}
+
 func supervisorPlaySel(demo bool) string {
 	if demo {
 		return `[data-supervisor-demo]`
@@ -476,6 +510,31 @@ func waitReady(ctx context.Context, deadline time.Time) error {
 		}
 	}
 	return fmt.Errorf("timeout")
+}
+
+func clickDemoModeStay(ctx context.Context) (bool, error) {
+	script := `(() => {
+		const modal = document.querySelector('[data-testid="game-demo-mode-modal"]');
+		if (!modal) return 'absent';
+		const st = getComputedStyle(modal);
+		if (modal.hidden || st.display === 'none' || st.visibility === 'hidden') return 'absent';
+		const btn = modal.querySelector('[data-testid="game-demo-mode-modal-stay-in-demo-button"]')
+			|| modal.querySelector('[data-testid="modal-header-button-close"]');
+		if (!btn) return 'missing';
+		btn.click();
+		return 'clicked';
+	})()`
+	result, err := chromedp.Run(ctx, chromedp.Evaluate[string](script))
+	if err != nil {
+		return false, fmt.Errorf("controls")
+	}
+	if result == "clicked" {
+		return true, nil
+	}
+	if result == "absent" {
+		return false, nil
+	}
+	return false, fmt.Errorf("controls")
 }
 
 func gameReadyInChildFrames(ctx context.Context) (bool, error) {

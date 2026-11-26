@@ -140,21 +140,27 @@ func Run(reg registry.Store, id, sessionFile, logPath string) error {
 	var watchGate WatchGate
 	go func() {
 		defer close(captureDone)
-		_ = ServeCapture(listenCtx, socketPath, CaptureHandlers{
+		if err := ServeCapture(listenCtx, socketPath, CaptureHandlers{
 			Gate: &watchGate,
 			Capture: func(context.Context) ([]byte, error) {
 				// Child of taskCtx: this timeout does not close the browser (003 FR-005, FR-009).
 				shotCtx, cancel := context.WithTimeout(taskCtx, 10*time.Second)
 				defer cancel()
+				if prefs.Demo {
+					_, _ = clickDemoModeStay(shotCtx)
+				}
 				return chromedp.Run(shotCtx, chromedp.CaptureScreenshot())
 			},
 			Watch: func(conn net.Conn, fps int) {
 				// 018 FR-004: loopback MJPEG until CLI disconnect or worker shutdown.
 				RunWatchSession(conn, taskCtx, nil, fps, &watchGate)
 			},
-		})
+		}); err != nil {
+			sink.Error(err.Error())
+		}
 	}()
 	if err := waitForSocket(socketPath, captureDone); err != nil {
+		sink.Error(err.Error())
 		stopCapture(listenCancel, captureDone, socketPath)
 		return err
 	}
@@ -164,6 +170,13 @@ func Run(reg registry.Store, id, sessionFile, logPath string) error {
 			sink.Error(err.Error())
 			stopCapture(listenCancel, captureDone, socketPath)
 			return err
+		}
+		if prefs.Demo {
+			if err := InstallDemoModeDismiss(taskCtx); err != nil {
+				sink.Error(err.Error())
+				stopCapture(listenCancel, captureDone, socketPath)
+				return err
+			}
 		}
 		if err := reg.Update(func(doc *registry.Document) error {
 			i := doc.Find(id)
