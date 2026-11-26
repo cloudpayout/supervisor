@@ -68,6 +68,14 @@ func TestSessionFileRules(t *testing.T) {
 		t.Fatalf("%v %+v", err, two)
 	}
 
+	brazinoID, _, _, err := session.Parse(write("brazino.json", `{"casino":"brazino","cookies":[{"name":"a","value":"b"}]}`), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if brazinoID != "brazino" {
+		t.Fatalf("casino %q", brazinoID)
+	}
+
 	for _, tc := range []struct {
 		name string
 		body string
@@ -78,6 +86,7 @@ func TestSessionFileRules(t *testing.T) {
 		{"bad casino", `{"casino":"Onewin","cookies":[{"name":"a","value":"b"}]}`},
 		{"url casino", `{"casino":"1win.com","cookies":[{"name":"a","value":"b"}]}`},
 		{"unknown casino", `{"casino":"other","cookies":[{"name":"a","value":"b"}]}`},
+		{"brazino777 casino", `{"casino":"brazino777","cookies":[{"name":"a","value":"b"}]}`},
 		{"unknown field", `{"casino":"onewin","extra":true,"cookies":[{"name":"a","value":"b"}]}`},
 		{"blank name", `{"casino":"onewin","cookies":[{"name":"","value":"b"}]}`},
 		{"blank value", `{"casino":"onewin","cookies":[{"name":"a","value":""}]}`},

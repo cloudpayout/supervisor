@@ -217,10 +217,10 @@ func openTarget(casinoID, sessionFile string) (string, []session.Cookie, session
 	if fileCasino != casinoID {
 		return "", nil, session.PlayPreferences{}, fmt.Errorf("session file casino %q does not match instance %q", fileCasino, casinoID)
 	}
-	if _, err := casino.Lookup(casinoID); err != nil {
+	page, err := casino.StartURL(casinoID, prefs.Locale)
+	if err != nil {
 		return "", nil, session.PlayPreferences{}, err
 	}
-	page := casino.PlayURL(prefs.Locale)
 	if override := os.Getenv("SUPERVISOR_PAGE_URL"); override != "" {
 		// Keep the loopback origin and still expose the locale path segment
 		// so stand-in tests can see FR-003 without contacting the live site.
