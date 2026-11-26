@@ -19,7 +19,7 @@ func TestRootHelpNoCompletion(t *testing.T) {
 			t.Fatalf("%v: %v", args, err)
 		}
 		text := string(out)
-		for _, want := range []string{"start", "status", "stop", "screenshot", "watch", "logs", "help"} {
+		for _, want := range []string{"start", "status", "stop", "screenshot", "watch", "logs", "session", "help"} {
 			if !strings.Contains(text, want) {
 				t.Fatalf("%v: help missing %q:\n%s", args, want, text)
 			}

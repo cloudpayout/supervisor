@@ -18,6 +18,8 @@ func Execute() error {
 	}
 	if isUsageError(err) {
 		fmt.Fprintln(os.Stderr, err)
+		// FR-005b: usage text stays off stdout so session info failures have empty stdout.
+		root.SetOut(os.Stderr)
 		_ = root.Usage()
 		os.Exit(2)
 	}
@@ -56,6 +58,7 @@ func newRoot() *cobra.Command {
 	root.AddCommand(newScreenshotCmd())
 	root.AddCommand(newWatchCmd())
 	root.AddCommand(newLogsCmd())
+	root.AddCommand(newSessionCmd())
 	root.AddCommand(newWorkerCmd())
 	return root
 }
