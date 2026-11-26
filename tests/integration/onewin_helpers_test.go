@@ -25,19 +25,21 @@ type standInEvent struct {
 }
 
 type standIn struct {
-	url             string
-	name            string
-	value           string
-	blockReady      bool
-	slowEntry       bool
-	delayCurrencyMS  int
-	liveReadyShell   bool
+	url               string
+	name              string
+	value             string
+	blockReady        bool
+	slowEntry         bool
+	delayCurrencyMS   int
+	delayDemoModalMS  int
+	repeatDemoModal   bool
+	liveReadyShell    bool
 	spribeConfigError bool
-	mu         sync.Mutex
-	hits       []standInHit
-	paths      []string
-	events     []standInEvent
-	srv        *http.Server
+	mu                sync.Mutex
+	hits              []standInHit
+	paths             []string
+	events            []standInEvent
+	srv               *http.Server
 }
 
 func newStandIn(t *testing.T, name, value string) *standIn {
@@ -108,6 +110,14 @@ func (s *standIn) serve(w http.ResponseWriter, r *http.Request) {
 	if s.delayCurrencyMS > 0 {
 		currencyDelay = s.delayCurrencyMS
 	}
+	demoModalDelay := 500
+	if s.delayDemoModalMS > 0 {
+		demoModalDelay = s.delayDemoModalMS
+	}
+	repeatDemo := "false"
+	if s.repeatDemoModal {
+		repeatDemo = "true"
+	}
 	liveShell := "false"
 	if s.liveReadyShell {
 		liveShell = "true"
@@ -126,6 +136,9 @@ func (s *standIn) serve(w http.ResponseWriter, r *http.Request) {
 </div>
 <button data-supervisor-play type="button">Play</button>
 <button data-supervisor-demo type="button">Modo demo</button>
+<div id="demo-modal" data-testid="game-demo-mode-modal" hidden>
+<button data-testid="game-demo-mode-modal-stay-in-demo-button" type="button">Seguir en demo</button>
+</div>
 <iframe data-supervisor-game-frame id="game" style="width:20px;height:20px;border:0" src="about:blank"></iframe>
 <script>
 function ping(kind, value) {
@@ -152,6 +165,13 @@ const block = %s;
 const delay = %d;
 const liveShell = %s;
 const configErr = %s;
+const demoModalDelay = %d;
+const repeatDemoModal = %s;
+let demoModalShows = 0;
+function showDemoModal() {
+  document.getElementById('demo-modal').hidden = false;
+  demoModalShows++;
+}
 function reveal() {
   if (block) return;
   const frame = document.getElementById('game');
@@ -170,9 +190,20 @@ function reveal() {
   setTimeout(() => { frame.src = src.toString(); }, delay);
 }
 document.querySelector('[data-supervisor-play]').onclick = () => { ping('play', ''); reveal(); };
-document.querySelector('[data-supervisor-demo]').onclick = () => { ping('demo', ''); reveal(); };
+document.querySelector('[data-supervisor-demo]').onclick = () => {
+  ping('demo', '');
+  reveal();
+  setTimeout(showDemoModal, demoModalDelay);
+};
+document.querySelector('[data-testid="game-demo-mode-modal-stay-in-demo-button"]').onclick = () => {
+  document.getElementById('demo-modal').hidden = true;
+  ping('demo-stay', '');
+  if (repeatDemoModal && demoModalShows < 2) {
+    setTimeout(showDemoModal, demoModalDelay);
+  }
+};
 </script>
-</body></html>`, color, body, currencyDelay, block, delay, liveShell, configErr)
+</body></html>`, color, body, currencyDelay, block, delay, liveShell, configErr, demoModalDelay, repeatDemo)
 }
 
 func (s *standIn) hitsCopy() []standInHit {
